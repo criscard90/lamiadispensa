@@ -2,57 +2,69 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>La Mia Dispensa</title>
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        .product-card { transition: transform 0.2s; }
-        .product-card:active { transform: scale(0.98); }
-        #reader { width: 100%; border-radius: 1rem; overflow: hidden; }
+        body { touch-action: manipulation; }
+        #reader { width: 100%; border-radius: 1rem; }
+        #reader video { border-radius: 1rem; object-fit: cover !important; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
+        .modal.active { display: flex; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900 font-sans pb-24">
+<body class="bg-slate-50 text-slate-900 pb-24">
 
     <header class="bg-indigo-600 text-white p-6 shadow-lg sticky top-0 z-50">
         <div class="max-w-md mx-auto flex justify-between items-center">
-            <h1 class="text-2xl font-bold flex items-center gap-2">
-                <i data-lucide="refrigerator"></i> Dispensa
-            </h1>
-            <button onclick="toggleScanner()" class="bg-white text-indigo-600 p-3 rounded-full shadow-md">
-                <i data-lucide="scan-barcode"></i>
-            </button>
+            <h1 class="text-xl font-bold flex items-center gap-2"><i data-lucide="refrigerator"></i> Dispensa</h1>
+            <div class="flex gap-2">
+                <button onclick="openManualModal()" class="bg-indigo-500 p-2 rounded-lg"><i data-lucide="plus"></i></button>
+                <button onclick="toggleScanner()" class="bg-white text-indigo-600 p-2 rounded-lg shadow-md"><i data-lucide="scan-barcode"></i></button>
+            </div>
         </div>
     </header>
 
     <main class="max-w-md mx-auto p-4">
         <div id="scanner-container" class="hidden mb-6 bg-white p-4 rounded-2xl shadow-xl">
             <div id="reader"></div>
-            <button onclick="toggleScanner()" class="w-full mt-4 py-2 text-slate-500 font-medium">Chiudi Scanner</button>
+            <p class="text-center text-xs text-slate-400 mt-2">Inquadra bene il codice e tieni fermo</p>
+            <button onclick="toggleScanner()" class="w-full mt-4 py-2 text-red-500 font-medium text-sm">Annulla</button>
         </div>
 
-        <div id="dispensa-list" class="grid gap-4">
-            </div>
+        <div id="dispensa-list" class="grid gap-3"></div>
     </main>
 
-    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t p-4 flex justify-around items-center shadow-2xl z-50">
-        <button onclick="renderDispensa('all')" class="flex flex-col items-center text-indigo-600">
-            <i data-lucide="layout-grid"></i>
-            <span class="text-xs">Tutti</span>
-        </button>
-        <button onclick="renderDispensa('low')" class="flex flex-col items-center text-slate-400">
-            <i data-lucide="shopping-cart"></i>
-            <span class="text-xs">Esauriti</span>
-        </button>
+    <div id="manual-modal" class="modal p-4">
+        <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl">
+            <h2 class="text-xl font-bold mb-4">Aggiungi Prodotto</h2>
+            <input type="text" id="m-nome" placeholder="Nome prodotto (es. Pasta)" class="w-full border p-3 rounded-xl mb-3">
+            <select id="m-cat" class="w-full border p-3 rounded-xl mb-4">
+                <option value="Pasta & Riso">Pasta & Riso</option>
+                <option value="Freschi">Freschi</option>
+                <option value="Conserve">Conserve</option>
+                <option value="Surgelati">Surgelati</option>
+                <option value="Altro">Altro</option>
+            </select>
+            <div class="flex gap-2">
+                <button onclick="closeManualModal()" class="flex-1 py-3 text-slate-500">Annulla</button>
+                <button onclick="saveManual()" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold">Salva</button>
+            </div>
+        </div>
+    </div>
+
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t p-4 flex justify-around shadow-2xl z-50">
+        <button onclick="renderDispensa('all')" class="flex flex-col items-center text-indigo-600"><i data-lucide="layout-grid"></i><span class="text-[10px]">Tutti</span></button>
+        <button onclick="renderDispensa('low')" class="flex flex-col items-center text-slate-400"><i data-lucide="shopping-cart"></i><span class="text-[10px]">Esauriti</span></button>
     </nav>
 
     <script>
         let dispensa = JSON.parse(localStorage.getItem('dispensa')) || [];
         let html5QrCode;
 
-        // Inizializza icone
         lucide.createIcons();
 
         function toggleScanner() {
@@ -66,74 +78,51 @@
             }
         }
 
-async function fetchProduct(barcode) {
-    // Alert di debug per confermare la lettura
-    alert("Codice rilevato: " + barcode);
-    
-    try {
-        const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
-        
-        if (!res.ok) {
-            throw new Error(`Errore di rete: ${res.status}`);
-        }
-
-        const data = await res.json();
-        console.log("Dati ricevuti:", data);
-
-        if (data.status === 1 && data.product) {
-            const p = data.product;
-            
-            // Cerchiamo di prendere il nome migliore possibile
-            const nomeProdotto = p.product_name || p.product_name_it || p.generic_name || "Prodotto sconosciuto";
-            
-            const nuovoProdotto = {
-                id: barcode,
-                name: nomeProdotto,
-                img: p.image_url || 'https://via.placeholder.com/150',
-                category: (p.categories_tags && p.categories_tags.length > 0) 
-                          ? p.categories_tags[0].replace('en:', '').replace('it:', '') 
-                          : 'Altro',
-                qty: 1
+        function startScanner() {
+            html5QrCode = new Html5Qrcode("reader");
+            // Configurazione ottimizzata per barcode
+            const config = { 
+                fps: 20, // Più frame per secondo = più reattivo
+                qrbox: { width: 280, height: 160 },
+                aspectRatio: 1.0
             };
-
-            updateDispensa(nuovoProdotto);
-            alert("Aggiunto: " + nomeProdotto);
-        } else {
-            alert("Prodotto non trovato nel database Open Food Facts (Codice: " + barcode + ")");
+            
+            html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
+                // Fermiamo subito per evitare doppie letture
+                html5QrCode.stop().then(() => {
+                    document.getElementById('scanner-container').classList.add('hidden');
+                    fetchProduct(decodedText);
+                });
+            }).catch(err => alert("Errore camera: " + err));
         }
-    } catch (e) {
-        alert("Errore durante il recupero dati: " + e.message);
-        console.error(e);
-    }
-}
 
-// Modifica anche la funzione startScanner per gestire errori della fotocamera
-function startScanner() {
-    html5QrCode = new Html5Qrcode("reader");
-    html5QrCode.start(
-        { facingMode: "environment" },
-        { 
-            fps: 10, 
-            qrbox: { width: 250, height: 150 },
-            // Aggiungiamo il supporto per più formati di barcode
-            formatsToSupport: [ Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8 ]
-        },
-        (decodedText) => {
-            html5QrCode.stop().then(() => {
-                document.getElementById('scanner-container').classList.add('hidden');
-                fetchProduct(decodedText);
-            });
-        },
-        (errorMessage) => {
-            // Questo logga continui errori di scansione (normale finché non inquadri bene)
-            // Meglio non mettere un alert qui o si blocca tutto.
+        async function fetchProduct(barcode) {
+            // Controllo se esiste già
+            const esistente = dispensa.find(i => i.id === barcode);
+            if (esistente) {
+                if (!confirm(`Il prodotto "${esistente.name}" è già in lista. Ne vuoi aggiungere un altro?`)) return;
+            }
+
+            try {
+                const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
+                const data = await res.json();
+                
+                if (data.status === 1) {
+                    const p = data.product;
+                    addOrUpdate({
+                        id: barcode,
+                        name: p.product_name || p.product_name_it || 'Senza nome',
+                        img: p.image_url || 'https://via.placeholder.com/150?text=No+Foto',
+                        category: p.categories_tags ? p.categories_tags[0].split(':').pop() : 'Altro',
+                        qty: 1
+                    });
+                } else {
+                    alert("Prodotto non trovato. Usare inserimento manuale.");
+                }
+            } catch (e) { alert("Errore API"); }
         }
-    ).catch((err) => {
-        alert("Errore attivazione fotocamera: " + err);
-    });
-}
 
-        function updateDispensa(prodotto) {
+        function addOrUpdate(prodotto) {
             const index = dispensa.findIndex(i => i.id === prodotto.id);
             if (index > -1) {
                 dispensa[index].qty++;
@@ -143,9 +132,31 @@ function startScanner() {
             saveAndRender();
         }
 
+        function saveManual() {
+            const nome = document.getElementById('m-nome').value;
+            const cat = document.getElementById('m-cat').value;
+            if(!nome) return alert("Inserisci un nome");
+
+            addOrUpdate({
+                id: 'MAN-' + Date.now(),
+                name: nome,
+                img: 'https://cdn-icons-png.flaticon.com/512/679/679821.png', // Icona pacco standard
+                category: cat,
+                qty: 1
+            });
+            closeManualModal();
+            document.getElementById('m-nome').value = '';
+        }
+
         function changeQty(id, delta) {
             const index = dispensa.findIndex(i => i.id === id);
-            dispensa[index].qty = Math.max(0, dispensa[index].qty + delta);
+            if (delta === -1 && dispensa[index].qty === 0) {
+                if(confirm("Vuoi eliminare definitivamente questo prodotto?")) {
+                    dispensa.splice(index, 1);
+                }
+            } else {
+                dispensa[index].qty = Math.max(0, dispensa[index].qty + delta);
+            }
             saveAndRender();
         }
 
@@ -157,21 +168,20 @@ function startScanner() {
         function renderDispensa(filter = 'all') {
             const list = document.getElementById('dispensa-list');
             list.innerHTML = '';
-            
-            const filtered = filter === 'low' ? dispensa.filter(i => i.qty === 0) : dispensa;
+            const items = filter === 'low' ? dispensa.filter(i => i.qty === 0) : dispensa;
 
-            filtered.forEach(p => {
+            items.forEach(p => {
                 list.innerHTML += `
-                    <div class="product-card bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
-                        <img src="${p.img}" class="w-16 h-16 object-cover rounded-lg bg-slate-100">
-                        <div class="flex-1">
-                            <h3 class="font-bold text-slate-800 leading-tight">${p.name}</h3>
-                            <p class="text-xs text-slate-400 uppercase font-semibold">${p.category}</p>
+                    <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-100 flex items-center gap-3">
+                        <img src="${p.img}" class="w-14 h-14 object-cover rounded-lg bg-slate-50">
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-bold text-sm truncate">${p.name}</h3>
+                            <p class="text-[10px] text-slate-400 uppercase">${p.category}</p>
                         </div>
-                        <div class="flex items-center gap-3 bg-slate-50 p-2 rounded-xl">
-                            <button onclick="changeQty('${p.id}', -1)" class="w-8 h-8 bg-white border rounded-lg shadow-sm font-bold">-</button>
-                            <span class="font-bold min-w-[20px] text-center ${p.qty === 0 ? 'text-red-500' : ''}">${p.qty}</span>
-                            <button onclick="changeQty('${p.id}', 1)" class="w-8 h-8 bg-indigo-600 text-white rounded-lg shadow-sm font-bold">+</button>
+                        <div class="flex items-center gap-2 bg-slate-100 p-1 rounded-lg">
+                            <button onclick="changeQty('${p.id}', -1)" class="w-7 h-7 bg-white rounded flex items-center justify-center shadow-sm text-lg">-</button>
+                            <span class="font-bold w-5 text-center ${p.qty === 0 ? 'text-red-500' : ''}">${p.qty}</span>
+                            <button onclick="changeQty('${p.id}', 1)" class="w-7 h-7 bg-indigo-600 text-white rounded flex items-center justify-center shadow-sm text-lg">+</button>
                         </div>
                     </div>
                 `;
@@ -179,7 +189,9 @@ function startScanner() {
             lucide.createIcons();
         }
 
-        // Primo avvio
+        function openManualModal() { document.getElementById('manual-modal').classList.add('active'); }
+        function closeManualModal() { document.getElementById('manual-modal').classList.remove('active'); }
+
         renderDispensa();
     </script>
 </body>
