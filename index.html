@@ -3,66 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>La Mia Dispensa</title>
+    <title>Dispensa Pro</title>
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        body { touch-action: manipulation; }
-        #reader { width: 100%; border-radius: 1rem; }
+        body { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         #reader video { border-radius: 1rem; object-fit: cover !important; }
-        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
+        .filter-btn.active { background-color: white; color: #4f46e5; font-weight: 800; border-color: white; }
+        .nav-btn.active { color: #4f46e5; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
         .modal.active { display: flex; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900 pb-24">
+<body class="bg-slate-50 text-slate-900 pb-28">
 
-    <header class="bg-indigo-600 text-white p-6 shadow-lg sticky top-0 z-50">
-        <div class="max-w-md mx-auto flex justify-between items-center">
-            <h1 class="text-xl font-bold flex items-center gap-2"><i data-lucide="refrigerator"></i> Dispensa</h1>
-            <div class="flex gap-2">
-                <button onclick="openManualModal()" class="bg-indigo-500 p-2 rounded-lg"><i data-lucide="plus"></i></button>
-                <button onclick="toggleScanner()" class="bg-white text-indigo-600 p-2 rounded-lg shadow-md"><i data-lucide="scan-barcode"></i></button>
+    <header class="bg-indigo-600 text-white shadow-lg sticky top-0 z-40">
+        <div class="max-w-md mx-auto p-4 space-y-4">
+            <div class="flex justify-between items-center">
+                <h1 class="text-xl font-bold flex items-center gap-2"><i data-lucide="refrigerator"></i> Dispensa</h1>
+                <div class="flex gap-2">
+                    <button onclick="openManualModal()" class="bg-indigo-500 p-2 rounded-xl active:scale-95"><i data-lucide="plus"></i></button>
+                    <button onclick="toggleScanner()" class="bg-white text-indigo-600 p-2 rounded-xl shadow-md active:scale-95"><i data-lucide="scan-barcode"></i></button>
+                </div>
+            </div>
+
+            <div class="relative">
+                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-300"></i>
+                <input type="text" id="search-input" oninput="handleSearch()" placeholder="Cerca un prodotto..." 
+                       class="w-full bg-indigo-700/50 border-none rounded-xl py-2.5 pl-10 pr-4 text-sm placeholder:text-indigo-300 focus:ring-2 focus:ring-white outline-none">
+            </div>
+
+            <div class="overflow-x-auto no-scrollbar flex gap-2 pb-1" id="category-filters">
+                <button onclick="setFilter('all')" class="filter-btn active shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[11px] uppercase tracking-wider">Tutti</button>
+                <button onclick="setFilter('Pasta & Riso')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[11px] uppercase tracking-wider">Pasta & Riso</button>
+                <button onclick="setFilter('Freschi')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[11px] uppercase tracking-wider">Freschi</button>
+                <button onclick="setFilter('Conserve')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[11px] uppercase tracking-wider">Conserve</button>
+                <button onclick="setFilter('Surgelati')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[11px] uppercase tracking-wider">Surgelati</button>
+                <button onclick="setFilter('Altro')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[11px] uppercase tracking-wider">Altro</button>
             </div>
         </div>
     </header>
 
     <main class="max-w-md mx-auto p-4">
-        <div id="scanner-container" class="hidden mb-6 bg-white p-4 rounded-2xl shadow-xl">
+        <div id="scanner-container" class="hidden mb-6 bg-white p-4 rounded-3xl shadow-xl border-2 border-indigo-100">
             <div id="reader"></div>
-            <p class="text-center text-xs text-slate-400 mt-2">Inquadra bene il codice e tieni fermo</p>
-            <button onclick="toggleScanner()" class="w-full mt-4 py-2 text-red-500 font-medium text-sm">Annulla</button>
+            <button onclick="toggleScanner()" class="w-full mt-4 py-2 text-red-500 font-bold text-xs uppercase tracking-widest">Annulla Scansione</button>
         </div>
 
         <div id="dispensa-list" class="grid gap-3"></div>
     </main>
 
     <div id="manual-modal" class="modal p-4">
-        <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl">
-            <h2 class="text-xl font-bold mb-4">Aggiungi Prodotto</h2>
-            <input type="text" id="m-nome" placeholder="Nome prodotto (es. Pasta)" class="w-full border p-3 rounded-xl mb-3">
-            <select id="m-cat" class="w-full border p-3 rounded-xl mb-4">
-                <option value="Pasta & Riso">Pasta & Riso</option>
-                <option value="Freschi">Freschi</option>
-                <option value="Conserve">Conserve</option>
-                <option value="Surgelati">Surgelati</option>
-                <option value="Altro">Altro</option>
-            </select>
-            <div class="flex gap-2">
-                <button onclick="closeManualModal()" class="flex-1 py-3 text-slate-500">Annulla</button>
-                <button onclick="saveManual()" class="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold">Salva</button>
+        <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
+            <h2 id="modal-title" class="text-xl font-bold mb-5">Dettaglio Prodotto</h2>
+            <input type="hidden" id="edit-id">
+            <div class="space-y-4">
+                <div>
+                    <label class="text-[10px] uppercase font-black text-slate-400 ml-1">Nome</label>
+                    <input type="text" id="m-nome" class="w-full border-2 border-slate-50 p-3 rounded-xl focus:border-indigo-500 outline-none bg-slate-50">
+                </div>
+                <div>
+                    <label class="text-[10px] uppercase font-black text-slate-400 ml-1">Categoria</label>
+                    <select id="m-cat" class="w-full border-2 border-slate-50 p-3 rounded-xl focus:border-indigo-500 outline-none bg-slate-50">
+                        <option value="Pasta & Riso">Pasta & Riso</option>
+                        <option value="Freschi">Freschi</option>
+                        <option value="Conserve">Conserve</option>
+                        <option value="Surgelati">Surgelati</option>
+                        <option value="Altro">Altro</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex gap-3 mt-8">
+                <button onclick="closeManualModal()" class="flex-1 py-3 text-slate-400 font-bold text-sm">CHIUDI</button>
+                <button onclick="saveProduct()" class="flex-1 py-3 bg-indigo-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-indigo-100 uppercase">Salva</button>
             </div>
         </div>
     </div>
 
-    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t p-4 flex justify-around shadow-2xl z-50">
-        <button onclick="renderDispensa('all')" class="flex flex-col items-center text-indigo-600"><i data-lucide="layout-grid"></i><span class="text-[10px]">Tutti</span></button>
-        <button onclick="renderDispensa('low')" class="flex flex-col items-center text-slate-400"><i data-lucide="shopping-cart"></i><span class="text-[10px]">Esauriti</span></button>
+    <nav class="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t p-3 flex justify-around shadow-2xl z-40">
+        <button onclick="setView('all')" id="nav-all" class="nav-btn active flex flex-col items-center gap-1">
+            <i data-lucide="layout-grid" class="w-5 h-5"></i>
+            <span class="text-[10px] font-black uppercase tracking-tighter">Dispensa</span>
+        </button>
+        <button onclick="setView('low')" id="nav-low" class="nav-btn flex flex-col items-center gap-1 text-slate-300">
+            <i data-lucide="shopping-basket" class="w-5 h-5"></i>
+            <span class="text-[10px] font-black uppercase tracking-tighter">Esauriti</span>
+        </button>
     </nav>
 
     <script>
         let dispensa = JSON.parse(localStorage.getItem('dispensa')) || [];
+        let currentFilter = 'all';
+        let currentView = 'all'; 
+        let searchQuery = '';
         let html5QrCode;
 
         lucide.createIcons();
@@ -80,27 +117,22 @@
 
         function startScanner() {
             html5QrCode = new Html5Qrcode("reader");
-            // Configurazione ottimizzata per barcode
-            const config = { 
-                fps: 20, // Più frame per secondo = più reattivo
-                qrbox: { width: 280, height: 160 },
-                aspectRatio: 1.0
-            };
-            
-            html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
-                // Fermiamo subito per evitare doppie letture
+            html5QrCode.start({ facingMode: "environment" }, { fps: 20, qrbox: { width: 250, height: 150 } }, 
+            (decodedText) => {
                 html5QrCode.stop().then(() => {
                     document.getElementById('scanner-container').classList.add('hidden');
                     fetchProduct(decodedText);
                 });
-            }).catch(err => alert("Errore camera: " + err));
+            }).catch(err => console.error(err));
         }
 
         async function fetchProduct(barcode) {
-            // Controllo se esiste già
             const esistente = dispensa.find(i => i.id === barcode);
             if (esistente) {
-                if (!confirm(`Il prodotto "${esistente.name}" è già in lista. Ne vuoi aggiungere un altro?`)) return;
+                if (confirm(`"${esistente.name}" già in dispensa. Aggiungo +1?`)) {
+                    changeQty(barcode, 1);
+                }
+                return;
             }
 
             try {
@@ -109,51 +141,75 @@
                 
                 if (data.status === 1) {
                     const p = data.product;
-                    addOrUpdate({
+                    addProdotto({
                         id: barcode,
-                        name: p.product_name || p.product_name_it || 'Senza nome',
-                        img: p.image_url || 'https://via.placeholder.com/150?text=No+Foto',
-                        category: p.categories_tags ? p.categories_tags[0].split(':').pop() : 'Altro',
+                        name: p.product_name || p.product_name_it || 'Prodotto Sconosciuto',
+                        img: p.image_url || 'https://via.placeholder.com/150?text=Food',
+                        category: 'Altro',
                         qty: 1
                     });
                 } else {
-                    alert("Prodotto non trovato. Usare inserimento manuale.");
+                    alert("Barcode non trovato. Inseriscilo manualmente!");
+                    openManualModal();
                 }
-            } catch (e) { alert("Errore API"); }
+            } catch (e) { alert("Connessione assente o errore API"); }
         }
 
-        function addOrUpdate(prodotto) {
-            const index = dispensa.findIndex(i => i.id === prodotto.id);
-            if (index > -1) {
-                dispensa[index].qty++;
-            } else {
-                dispensa.push(prodotto);
-            }
+        function addProdotto(p) {
+            dispensa.push(p);
             saveAndRender();
         }
 
-        function saveManual() {
+        function handleSearch() {
+            searchQuery = document.getElementById('search-input').value.toLowerCase();
+            renderDispensa();
+        }
+
+        function setFilter(cat) {
+            currentFilter = cat;
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                const btnText = btn.innerText.toLowerCase();
+                const targetText = cat === 'all' ? 'tutti' : cat.toLowerCase();
+                btn.classList.toggle('active', btnText === targetText);
+            });
+            renderDispensa();
+        }
+
+        function setView(view) {
+            currentView = view;
+            document.getElementById('nav-all').classList.toggle('active', view === 'all');
+            document.getElementById('nav-low').classList.toggle('active', view === 'low');
+            renderDispensa();
+        }
+
+        function saveProduct() {
+            const id = document.getElementById('edit-id').value;
             const nome = document.getElementById('m-nome').value;
             const cat = document.getElementById('m-cat').value;
-            if(!nome) return alert("Inserisci un nome");
 
-            addOrUpdate({
-                id: 'MAN-' + Date.now(),
-                name: nome,
-                img: 'https://cdn-icons-png.flaticon.com/512/679/679821.png', // Icona pacco standard
-                category: cat,
-                qty: 1
-            });
+            if(!nome) return alert("Nome obbligatorio");
+
+            if(id) {
+                const idx = dispensa.findIndex(i => i.id === id);
+                dispensa[idx].name = nome;
+                dispensa[idx].category = cat;
+            } else {
+                addProdotto({
+                    id: 'MAN-' + Date.now(),
+                    name: nome,
+                    img: 'https://cdn-icons-png.flaticon.com/512/679/679821.png',
+                    category: cat,
+                    qty: 1
+                });
+            }
             closeManualModal();
-            document.getElementById('m-nome').value = '';
+            saveAndRender();
         }
 
         function changeQty(id, delta) {
             const index = dispensa.findIndex(i => i.id === id);
             if (delta === -1 && dispensa[index].qty === 0) {
-                if(confirm("Vuoi eliminare definitivamente questo prodotto?")) {
-                    dispensa.splice(index, 1);
-                }
+                if(confirm("Eliminare definitivamente?")) dispensa.splice(index, 1);
             } else {
                 dispensa[index].qty = Math.max(0, dispensa[index].qty + delta);
             }
@@ -165,23 +221,41 @@
             renderDispensa();
         }
 
-        function renderDispensa(filter = 'all') {
+        function renderDispensa() {
             const list = document.getElementById('dispensa-list');
             list.innerHTML = '';
-            const items = filter === 'low' ? dispensa.filter(i => i.qty === 0) : dispensa;
+            
+            let items = dispensa;
+            
+            // 1. Filtro Vista (Tutti vs Esauriti)
+            if(currentView === 'low') items = items.filter(i => i.qty === 0);
+            
+            // 2. Filtro Categoria
+            if(currentFilter !== 'all') items = items.filter(i => i.category === currentFilter);
+
+            // 3. Filtro Ricerca
+            if(searchQuery !== '') items = items.filter(i => i.name.toLowerCase().includes(searchQuery));
+
+            if(items.length === 0) {
+                list.innerHTML = `
+                    <div class="text-center py-20 text-slate-300">
+                        <i data-lucide="search-x" class="w-12 h-12 mx-auto mb-2 opacity-20"></i>
+                        <p class="text-sm font-medium">Nessun prodotto trovato</p>
+                    </div>`;
+            }
 
             items.forEach(p => {
                 list.innerHTML += `
-                    <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-100 flex items-center gap-3">
-                        <img src="${p.img}" class="w-14 h-14 object-cover rounded-lg bg-slate-50">
-                        <div class="flex-1 min-w-0">
-                            <h3 class="font-bold text-sm truncate">${p.name}</h3>
-                            <p class="text-[10px] text-slate-400 uppercase">${p.category}</p>
+                    <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4 active:scale-[0.98] transition-transform">
+                        <img src="${p.img}" class="w-16 h-16 object-cover rounded-xl bg-slate-50 shadow-inner" onclick="openManualModal('${p.id}')">
+                        <div class="flex-1 min-w-0" onclick="openManualModal('${p.id}')">
+                            <h3 class="font-bold text-slate-800 text-sm truncate leading-tight">${p.name}</h3>
+                            <span class="inline-block mt-1 px-2 py-0.5 bg-indigo-50 text-indigo-500 rounded text-[9px] font-black uppercase tracking-widest border border-indigo-100">${p.category}</span>
                         </div>
-                        <div class="flex items-center gap-2 bg-slate-100 p-1 rounded-lg">
-                            <button onclick="changeQty('${p.id}', -1)" class="w-7 h-7 bg-white rounded flex items-center justify-center shadow-sm text-lg">-</button>
-                            <span class="font-bold w-5 text-center ${p.qty === 0 ? 'text-red-500' : ''}">${p.qty}</span>
-                            <button onclick="changeQty('${p.id}', 1)" class="w-7 h-7 bg-indigo-600 text-white rounded flex items-center justify-center shadow-sm text-lg">+</button>
+                        <div class="flex items-center gap-2 bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
+                            <button onclick="changeQty('${p.id}', -1)" class="w-8 h-8 bg-white rounded-xl flex items-center justify-center shadow-sm text-lg font-bold text-slate-400">-</button>
+                            <span class="font-black w-6 text-center text-sm ${p.qty === 0 ? 'text-red-500' : 'text-indigo-600'}">${p.qty}</span>
+                            <button onclick="changeQty('${p.id}', 1)" class="w-8 h-8 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg text-lg font-bold">+</button>
                         </div>
                     </div>
                 `;
@@ -189,9 +263,24 @@
             lucide.createIcons();
         }
 
-        function openManualModal() { document.getElementById('manual-modal').classList.add('active'); }
+        function openManualModal(id = null) {
+            const modal = document.getElementById('manual-modal');
+            if(id) {
+                const p = dispensa.find(i => i.id === id);
+                document.getElementById('edit-id').value = p.id;
+                document.getElementById('m-nome').value = p.name;
+                document.getElementById('m-cat').value = p.category;
+            } else {
+                document.getElementById('edit-id').value = '';
+                document.getElementById('m-nome').value = '';
+                document.getElementById('m-cat').value = 'Altro';
+            }
+            modal.classList.add('active');
+        }
+
         function closeManualModal() { document.getElementById('manual-modal').classList.remove('active'); }
 
+        // Avvio iniziale
         renderDispensa();
     </script>
 </body>
