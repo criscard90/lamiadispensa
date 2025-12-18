@@ -13,8 +13,12 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         #reader video { border-radius: 1rem; object-fit: cover !important; }
+        /* Stili Filtri Categoria */
         .filter-btn.active { background-color: white; color: #4f46e5; font-weight: 800; border-color: white; }
-        .nav-btn.active { color: #4f46e5; }
+        /* Stili Navigazione Basso */
+        .nav-btn { color: #cbd5e1; transition: all 0.2s; } /* Grigio slate-300 */
+        .nav-btn.active { color: #4f46e5; } /* Indigo-600 */
+        
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
         .modal.active { display: flex; }
     </style>
@@ -51,7 +55,7 @@
     <main class="max-w-md mx-auto p-4">
         <div id="scanner-container" class="hidden mb-6 bg-white p-4 rounded-3xl shadow-xl border-2 border-indigo-100">
             <div id="reader"></div>
-            <button onclick="toggleScanner()" class="w-full mt-4 py-2 text-red-500 font-bold text-xs uppercase tracking-widest">Annulla Scansione</button>
+            <button onclick="toggleScanner()" class="w-full mt-4 py-2 text-red-500 font-bold text-xs uppercase tracking-widest text-center">Annulla Scansione</button>
         </div>
 
         <div id="dispensa-list" class="grid gap-3"></div>
@@ -89,7 +93,7 @@
             <i data-lucide="layout-grid" class="w-5 h-5"></i>
             <span class="text-[10px] font-black uppercase tracking-tighter">Dispensa</span>
         </button>
-        <button onclick="setView('low')" id="nav-low" class="nav-btn flex flex-col items-center gap-1 text-slate-300">
+        <button onclick="setView('low')" id="nav-low" class="nav-btn flex flex-col items-center gap-1">
             <i data-lucide="shopping-basket" class="w-5 h-5"></i>
             <span class="text-[10px] font-black uppercase tracking-tighter">Esauriti</span>
         </button>
@@ -177,6 +181,7 @@
 
         function setView(view) {
             currentView = view;
+            // Gestione highlight pulsanti navigazione
             document.getElementById('nav-all').classList.toggle('active', view === 'all');
             document.getElementById('nav-low').classList.toggle('active', view === 'low');
             renderDispensa();
@@ -226,14 +231,8 @@
             list.innerHTML = '';
             
             let items = dispensa;
-            
-            // 1. Filtro Vista (Tutti vs Esauriti)
             if(currentView === 'low') items = items.filter(i => i.qty === 0);
-            
-            // 2. Filtro Categoria
             if(currentFilter !== 'all') items = items.filter(i => i.category === currentFilter);
-
-            // 3. Filtro Ricerca
             if(searchQuery !== '') items = items.filter(i => i.name.toLowerCase().includes(searchQuery));
 
             if(items.length === 0) {
@@ -280,7 +279,6 @@
 
         function closeManualModal() { document.getElementById('manual-modal').classList.remove('active'); }
 
-        // Avvio iniziale
         renderDispensa();
     </script>
 </body>
