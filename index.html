@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Mia Dispensa</title>
+    <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .product-card { transition: transform 0.2s; }
+        .product-card:active { transform: scale(0.98); }
+        #reader { width: 100%; border-radius: 1rem; overflow: hidden; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans pb-24">
+
+    <header class="bg-indigo-600 text-white p-6 shadow-lg sticky top-0 z-50">
+        <div class="max-w-md mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold flex items-center gap-2">
+                <i data-lucide="refrigerator"></i> Dispensa
+            </h1>
+            <button onclick="toggleScanner()" class="bg-white text-indigo-600 p-3 rounded-full shadow-md">
+                <i data-lucide="scan-barcode"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-md mx-auto p-4">
+        <div id="scanner-container" class="hidden mb-6 bg-white p-4 rounded-2xl shadow-xl">
+            <div id="reader"></div>
+            <button onclick="toggleScanner()" class="w-full mt-4 py-2 text-slate-500 font-medium">Chiudi Scanner</button>
+        </div>
+
+        <div id="dispensa-list" class="grid gap-4">
+            </div>
+    </main>
+
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t p-4 flex justify-around items-center shadow-2xl z-50">
+        <button onclick="renderDispensa('all')" class="flex flex-col items-center text-indigo-600">
+            <i data-lucide="layout-grid"></i>
+            <span class="text-xs">Tutti</span>
+        </button>
+        <button onclick="renderDispensa('low')" class="flex flex-col items-center text-slate-400">
+            <i data-lucide="shopping-cart"></i>
+            <span class="text-xs">Esauriti</span>
+        </button>
+    </nav>
+
+    <script>
+        let dispensa = JSON.parse(localStorage.getItem('dispensa')) || [];
+        let html5QrCode;
+
+        // Inizializza icone
+        lucide.createIcons();
+
+        function toggleScanner() {
+            const container = document.getElementById('scanner-container');
+            if (container.classList.contains('hidden')) {
+                container.classList.remove('hidden');
+                startScanner();
+            } else {
+                container.classList.add('hidden');
+                if(html5QrCode) html5QrCode.stop();
+            }
+        }
+
+        function startScanner() {
+            html5QrCode = new Html5Qrcode("reader");
+            html5QrCode.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 250, height: 150 } },
+                (decodedText) => {
+                    toggleScanner();
+                    fetchProduct(decodedText);
+                }
+            );
+        }
+
+        async function fetchProduct(barcode) {
+            try {
+                const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
+                const data = await res.json();
+                
+                if (data.status === 1) {
+                    const p = data.product;
+                    const nuovoProdotto = {
+                        id: barcode,
+                        name: p.product_name || 'Ignoto',
+                        img: p.image_url || 'https://via.placeholder.com/150',
+                        category: p.categories_tags ? p.categories_tags[0].replace('en:', '') : 'Altro',
+                        qty: 1
+                    };
+                    updateDispensa(nuovoProdotto);
+                } else {
+                    alert("Prodotto non trovato nel database.");
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        function updateDispensa(prodotto) {
+            const index = dispensa.findIndex(i => i.id === prodotto.id);
+            if (index > -1) {
+                dispensa[index].qty++;
+            } else {
+                dispensa.push(prodotto);
+            }
+            saveAndRender();
+        }
+
+        function changeQty(id, delta) {
+            const index = dispensa.findIndex(i => i.id === id);
+            dispensa[index].qty = Math.max(0, dispensa[index].qty + delta);
+            saveAndRender();
+        }
+
+        function saveAndRender() {
+            localStorage.setItem('dispensa', JSON.stringify(dispensa));
+            renderDispensa();
+        }
+
+        function renderDispensa(filter = 'all') {
+            const list = document.getElementById('dispensa-list');
+            list.innerHTML = '';
+            
+            const filtered = filter === 'low' ? dispensa.filter(i => i.qty === 0) : dispensa;
+
+            filtered.forEach(p => {
+                list.innerHTML += `
+                    <div class="product-card bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
+                        <img src="${p.img}" class="w-16 h-16 object-cover rounded-lg bg-slate-100">
+                        <div class="flex-1">
+                            <h3 class="font-bold text-slate-800 leading-tight">${p.name}</h3>
+                            <p class="text-xs text-slate-400 uppercase font-semibold">${p.category}</p>
+                        </div>
+                        <div class="flex items-center gap-3 bg-slate-50 p-2 rounded-xl">
+                            <button onclick="changeQty('${p.id}', -1)" class="w-8 h-8 bg-white border rounded-lg shadow-sm font-bold">-</button>
+                            <span class="font-bold min-w-[20px] text-center ${p.qty === 0 ? 'text-red-500' : ''}">${p.qty}</span>
+                            <button onclick="changeQty('${p.id}', 1)" class="w-8 h-8 bg-indigo-600 text-white rounded-lg shadow-sm font-bold">+</button>
+                        </div>
+                    </div>
+                `;
+            });
+            lucide.createIcons();
+        }
+
+        // Primo avvio
+        renderDispensa();
+    </script>
+</body>
+</html>
