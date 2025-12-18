@@ -66,38 +66,72 @@
             }
         }
 
-        function startScanner() {
-            html5QrCode = new Html5Qrcode("reader");
-            html5QrCode.start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 250, height: 150 } },
-                (decodedText) => {
-                    toggleScanner();
-                    fetchProduct(decodedText);
-                }
-            );
+async function fetchProduct(barcode) {
+    // Alert di debug per confermare la lettura
+    alert("Codice rilevato: " + barcode);
+    
+    try {
+        const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
+        
+        if (!res.ok) {
+            throw new Error(`Errore di rete: ${res.status}`);
         }
 
-        async function fetchProduct(barcode) {
-            try {
-                const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
-                const data = await res.json();
-                
-                if (data.status === 1) {
-                    const p = data.product;
-                    const nuovoProdotto = {
-                        id: barcode,
-                        name: p.product_name || 'Ignoto',
-                        img: p.image_url || 'https://via.placeholder.com/150',
-                        category: p.categories_tags ? p.categories_tags[0].replace('en:', '') : 'Altro',
-                        qty: 1
-                    };
-                    updateDispensa(nuovoProdotto);
-                } else {
-                    alert("Prodotto non trovato nel database.");
-                }
-            } catch (e) { console.error(e); }
+        const data = await res.json();
+        console.log("Dati ricevuti:", data);
+
+        if (data.status === 1 && data.product) {
+            const p = data.product;
+            
+            // Cerchiamo di prendere il nome migliore possibile
+            const nomeProdotto = p.product_name || p.product_name_it || p.generic_name || "Prodotto sconosciuto";
+            
+            const nuovoProdotto = {
+                id: barcode,
+                name: nomeProdotto,
+                img: p.image_url || 'https://via.placeholder.com/150',
+                category: (p.categories_tags && p.categories_tags.length > 0) 
+                          ? p.categories_tags[0].replace('en:', '').replace('it:', '') 
+                          : 'Altro',
+                qty: 1
+            };
+
+            updateDispensa(nuovoProdotto);
+            alert("Aggiunto: " + nomeProdotto);
+        } else {
+            alert("Prodotto non trovato nel database Open Food Facts (Codice: " + barcode + ")");
         }
+    } catch (e) {
+        alert("Errore durante il recupero dati: " + e.message);
+        console.error(e);
+    }
+}
+
+// Modifica anche la funzione startScanner per gestire errori della fotocamera
+function startScanner() {
+    html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start(
+        { facingMode: "environment" },
+        { 
+            fps: 10, 
+            qrbox: { width: 250, height: 150 },
+            // Aggiungiamo il supporto per più formati di barcode
+            formatsToSupport: [ Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8 ]
+        },
+        (decodedText) => {
+            html5QrCode.stop().then(() => {
+                document.getElementById('scanner-container').classList.add('hidden');
+                fetchProduct(decodedText);
+            });
+        },
+        (errorMessage) => {
+            // Questo logga continui errori di scansione (normale finché non inquadri bene)
+            // Meglio non mettere un alert qui o si blocca tutto.
+        }
+    ).catch((err) => {
+        alert("Errore attivazione fotocamera: " + err);
+    });
+}
 
         function updateDispensa(prodotto) {
             const index = dispensa.findIndex(i => i.id === prodotto.id);
