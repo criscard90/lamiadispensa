@@ -207,52 +207,52 @@
                 });
             }
             
-window.handleSave = async () => {
-    const id = document.getElementById('edit-id').value;
-    const nome = document.getElementById('m-nome').value.trim();
-    const categoria = document.getElementById('m-cat').value;
-    if(!nome) return;
-
-    try {
-        if (!id) {
-            // LOGICA NUOVO PRODOTTO
-            const esistente = prodData.find(p => p.nome.toLowerCase() === nome.toLowerCase());
-            if (esistente) {
-                if (confirm(`"${nome}" è già in dispensa. Aggiungo +1?`)) {
-                    await changeQty(esistente.id, 1);
+            window.handleSave = async () => {
+                const id = document.getElementById('edit-id').value;
+                const nome = document.getElementById('m-nome').value.trim();
+                const categoria = document.getElementById('m-cat').value;
+                if(!nome) return;
+                
+                try {
+                    if (!id) {
+                        // LOGICA NUOVO PRODOTTO
+                        const esistente = prodData.find(p => p.nome.toLowerCase() === nome.toLowerCase());
+                        if (esistente) {
+                            if (confirm(`"${nome}" è già in dispensa. Aggiungo +1?`)) {
+                                await changeQty(esistente.id, 1);
+                                closeManualModal();
+                            }
+                            return;
+                        }
+                        
+                        await addDoc(collection(db, "prodotti"), { 
+                            nome: nome,
+                            categoria: categoria,
+                            userId: currentUser.uid,
+                            qty: 1,
+                            img: 'https://cdn-icons-png.flaticon.com/512/679/679821.png', // Foto default solo per i NUOVI
+                            updatedAt: new Date(),
+                            barcode: null
+                        });
+                    } else {
+                        // LOGICA MODIFICA (UPDATE)
+                        // Recuperiamo il prodotto originale dai nostri dati locali per non perdere img e barcode
+                        const prodottoOriginale = prodData.find(p => p.id === id);
+                        
+                        await updateDoc(doc(db, "prodotti", id), { 
+                            nome: nome,
+                            categoria: categoria,
+                            // Manteniamo i valori esistenti se presenti, altrimenti mettiamo default
+                            img: prodottoOriginale.img || 'https://cdn-icons-png.flaticon.com/512/679/679821.png',
+                            barcode: prodottoOriginale.barcode || null,
+                            updatedAt: new Date()
+                        });
+                    }
                     closeManualModal();
+                } catch (e) {
+                    alert("Errore nel salvataggio: " + e.message);
                 }
-                return;
-            }
-
-            await addDoc(collection(db, "prodotti"), { 
-                nome: nome,
-                categoria: categoria,
-                userId: currentUser.uid,
-                qty: 1,
-                img: 'https://cdn-icons-png.flaticon.com/512/679/679821.png', // Foto default solo per i NUOVI
-                updatedAt: new Date(),
-                barcode: null
-            });
-        } else {
-            // LOGICA MODIFICA (UPDATE)
-            // Recuperiamo il prodotto originale dai nostri dati locali per non perdere img e barcode
-            const prodottoOriginale = prodData.find(p => p.id === id);
-            
-            await updateDoc(doc(db, "prodotti", id), { 
-                nome: nome,
-                categoria: categoria,
-                // Manteniamo i valori esistenti se presenti, altrimenti mettiamo default
-                img: prodottoOriginale.img || 'https://cdn-icons-png.flaticon.com/512/679/679821.png',
-                barcode: prodottoOriginale.barcode || null,
-                updatedAt: new Date()
-            });
-        }
-        closeManualModal();
-    } catch (e) {
-        alert("Errore nel salvataggio: " + e.message);
-    }
-};
+            };
             
             window.changeQty = async (id, delta) => {
                 const p = prodData.find(i => i.id === id);
@@ -264,25 +264,68 @@ window.handleSave = async () => {
                 }
             };
             
-            window.fetchProductAPI = async (barcode) => {
-                try {
-                    // Controllo immediato nei dati locali già caricati
-                    const esistente = prodData.find(p => p.barcode === barcode);
+            let isScanning = false; // Flag per evitare scansioni multiple
+            
+            window.toggleScanner = () => {
+                const container = document.getElementById('scanner-container');
+                if (container.classList.contains('hidden')) {
+                    container.classList.remove('hidden');
+                    html5QrCode = new Html5Qrcode("reader");
                     
+                    const config = { 
+                        fps: 15, // Leggermente meno fps per dare tempo al sensore di mettere a fuoco
+                        qrbox: { width: 280, height: 160 }, // Rettangolo orizzontale ideale per barcode
+                        aspectRatio: 1.777778 // 16:9
+                    };
+                    
+                    // Specifichiamo di cercare solo Barcode (EAN/UPC) per essere più veloci e precisi
+                    html5QrCode.start(
+                    { facingMode: "environment" }, 
+                    config, 
+                    async (text) => {
+                        if (isScanning) return; // Se sto già processando, ignoro
+                        isScanning = true;
+                        
+                        // Feedback tattile (se supportato)
+                        if(navigator.vibrate) navigator.vibrate(100);
+                        
+                        await html5QrCode.stop();
+                        container.classList.add('hidden');
+                        
+                        // Avviamo l'aggiunta
+                        await window.fetchProductAPI(text);
+                        isScanning = false; // Riapro la possibilità di scansionare
+                    }
+                    ).catch(err => alert("Errore fotocamera: " + err));
+                } else {
+                    container.classList.add('hidden');
+                    if(html5QrCode) html5QrCode.stop();
+                    isScanning = false;
+                }
+            };
+            
+            window.fetchProductAPI = async (barcode) => {
+                // Mostriamo un caricamento immediato (opzionale ma consigliato)
+                const list = document.getElementById('dispensa-list');
+                const loadingId = "temp-load";
+                list.insertAdjacentHTML('afterbegin', `<div id="${loadingId}" class="p-4 text-center text-indigo-500 font-bold animate-pulse">Verifica prodotto in corso...</div>`);
+                
+                try {
+                    // 1. Controllo immediato nel database locale per evitare duplicati
+                    const esistente = prodData.find(p => p.barcode === barcode);
                     if (esistente) {
-                        // Se esiste, incrementiamo solo la quantità senza chiamare l'API esterna
-                        await changeQty(esistente.id, 1);
-                        alert(`Prodotto già presente: aggiunta +1 unità a ${esistente.nome}`);
+                        document.getElementById(loadingId)?.remove();
+                        await window.changeQty(esistente.id, 1);
                         return;
                     }
                     
-                    // Se non esiste, procediamo con la chiamata a OpenFoodFacts
+                    // 2. Chiamata API esterna
                     const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
                     const data = await res.json();
                     
                     if (data.status === 1) {
                         const p = data.product;
-                        await addDoc(collection(db, "prodotti"), {
+                        const nuovoProdotto = {
                             userId: currentUser.uid,
                             barcode: barcode,
                             nome: p.product_name || p.product_name_it || 'Prodotto Ignoto',
@@ -290,13 +333,18 @@ window.handleSave = async () => {
                             categoria: 'Altro',
                             qty: 1,
                             updatedAt: new Date()
-                        });
+                        };
+                        
+                        // 3. Salvataggio su Firestore
+                        await addDoc(collection(db, "prodotti"), nuovoProdotto);
                     } else {
-                        alert("Barcode non trovato. Inseriscilo manualmente.");
-                        openManualModal();
+                        alert("Prodotto non in database. Inserimento manuale.");
+                        window.openManualModal();
                     }
                 } catch (e) {
-                    alert("Errore scansione: " + e.message);
+                    alert("Errore durante l'aggiunta: " + e.message);
+                } finally {
+                    document.getElementById(loadingId)?.remove();
                 }
             };
             
