@@ -233,23 +233,41 @@
             }
         };
         
-        window.fetchProductAPI = async (barcode) => {
-            try {
-                const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
-                const data = await res.json();
-                if (data.status === 1) {
-                    const p = data.product;
-                    await addDoc(collection(db, "prodotti"), {
-                        userId: currentUser.uid,
-                        barcode: barcode,
-                        nome: p.product_name || p.product_name_it || 'Ignoto',
-                        img: p.image_url || 'https://via.placeholder.com/150',
-                        categoria: 'Altro',
-                        qty: 1
-                    });
-                } else { alert("Barcode non trovato."); openManualModal(); }
-            } catch (e) { alert("Errore connessione."); }
-        };
+window.fetchProductAPI = async (barcode) => {
+    try {
+        // 1. Alert di debug: capiamo se il barcode viene letto
+        // alert("Barcode rilevato: " + barcode); 
+
+        const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
+        const data = await res.json();
+        
+        if (data.status === 1) {
+            const p = data.product;
+            
+            // Creiamo l'oggetto pulito assicurandoci che non ci siano valori 'undefined'
+            const nuovoProdotto = {
+                userId: currentUser.uid,
+                barcode: barcode || "",
+                nome: p.product_name || p.product_name_it || 'Prodotto Ignoto',
+                img: p.image_url || 'https://via.placeholder.com/150',
+                categoria: 'Altro',
+                qty: 1,
+                updatedAt: new Date()
+            };
+
+            // 2. Tentativo di salvataggio su Firestore
+            await addDoc(collection(db, "prodotti"), nuovoProdotto);
+            // alert("Prodotto aggiunto con successo!");
+
+        } else {
+            alert("Codice a barre non trovato nel database mondiale. Inseriscilo manualmente.");
+            openManualModal();
+        }
+    } catch (e) {
+        // Questo alert ti dirà se il problema è la connessione o Firestore
+        alert("Errore durante l'aggiunta: " + e.message);
+    }
+};
         
         // --- UI RENDERING ---
         window.renderDispensa = () => {
