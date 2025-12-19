@@ -190,100 +190,112 @@
         });
         
         // --- FIRESTORE LOGIC ---
-        function startSync() {
-            const q = query(
-            collection(db, "prodotti"), 
-            where("userId", "==", currentUser.uid),
-            orderBy("nome", "asc")
-            );
-            
-            unsub = onSnapshot(q, (snapshot) => {
-                prodData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderDispensa();
-            });
-        }
-        
-        window.handleSave = async () => {
-            const id = document.getElementById('edit-id').value;
-            const nome = document.getElementById('m-nome').value;
-            const categoria = document.getElementById('m-cat').value;
-            if(!nome) return;
-            
-            const data = { nome, categoria, userId: currentUser.uid, updatedAt: new Date() };
-            
-            if(id) {
-                await updateDoc(doc(db, "prodotti", id), data);
-            } else {
-                await addDoc(collection(db, "prodotti"), { 
-                    ...data, 
-                    qty: 1, 
-                    img: 'https://cdn-icons-png.flaticon.com/512/679/679821.png'
+        // Nella parte del codice <script type="module">
+            function startSync() {
+                // Rimuoviamo orderBy per evitare l'errore dell'indice mancante
+                const q = query(
+                collection(db, "prodotti"), 
+                where("userId", "==", currentUser.uid)
+                );
+                
+                unsub = onSnapshot(q, (snapshot) => {
+                    prodData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    renderDispensa();
+                }, (error) => {
+                    // Questo ti avvisa via telefono se c'è un errore di permessi o altro
+                    alert("Errore Firestore: " + error.message);
                 });
             }
-            closeManualModal();
-        };
-        
-        window.changeQty = async (id, delta) => {
-            const p = prodData.find(i => i.id === id);
-            const newQty = Math.max(0, p.qty + delta);
-            if (delta === -1 && p.qty === 0) {
-                if(confirm("Eliminare definitivamente?")) await deleteDoc(doc(db, "prodotti", id));
-            } else {
-                await updateDoc(doc(db, "prodotti", id), { qty: newQty });
-            }
-        };
-        
-window.fetchProductAPI = async (barcode) => {
-    try {
-        // 1. Alert di debug: capiamo se il barcode viene letto
-        // alert("Barcode rilevato: " + barcode); 
-
-        const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
-        const data = await res.json();
-        
-        if (data.status === 1) {
-            const p = data.product;
             
-            // Creiamo l'oggetto pulito assicurandoci che non ci siano valori 'undefined'
-            const nuovoProdotto = {
-                userId: currentUser.uid,
-                barcode: barcode || "",
-                nome: p.product_name || p.product_name_it || 'Prodotto Ignoto',
-                img: p.image_url || 'https://via.placeholder.com/150',
-                categoria: 'Altro',
-                qty: 1,
-                updatedAt: new Date()
-            };
+window.handleSave = async () => {
+    const id = document.getElementById('edit-id').value;
+    const nome = document.getElementById('m-nome').value;
+    const categoria = document.getElementById('m-cat').value;
+    if(!nome) return;
 
-            // 2. Tentativo di salvataggio su Firestore
-            await addDoc(collection(db, "prodotti"), nuovoProdotto);
-            // alert("Prodotto aggiunto con successo!");
+    try {
+        const data = { 
+            nome: nome, 
+            categoria: categoria, 
+            userId: currentUser.uid, 
+            updatedAt: new Date(),
+            qty: 1,
+            img: 'https://cdn-icons-png.flaticon.com/512/679/679821.png'
+        };
 
+        if(id) {
+            await updateDoc(doc(db, "prodotti", id), data);
         } else {
-            alert("Codice a barre non trovato nel database mondiale. Inseriscilo manualmente.");
-            openManualModal();
+            // USIAMO IL RIFERIMENTO DIRETTO ALLA COLLEZIONE
+            await addDoc(collection(db, "prodotti"), data);
         }
+        closeManualModal();
     } catch (e) {
-        // Questo alert ti dirà se il problema è la connessione o Firestore
-        alert("Errore durante l'aggiunta: " + e.message);
+        alert("Errore nel salvataggio: " + e.message);
     }
 };
-        
-        // --- UI RENDERING ---
-        window.renderDispensa = () => {
-            const list = document.getElementById('dispensa-list');
-            list.innerHTML = '';
-            let items = prodData;
-            if(currentView === 'low') items = items.filter(i => i.qty === 0);
-            if(currentFilter !== 'all') items = items.filter(i => i.categoria === currentFilter);
-            if(searchQuery !== '') items = items.filter(i => i.nome.toLowerCase().includes(searchQuery));
             
-            if(items.length === 0) {
-                list.innerHTML = `<div class="text-center py-20 text-slate-300"><i data-lucide="search-x" class="w-10 h-10 mx-auto mb-2 opacity-20"></i><p class="text-sm font-medium">Vuoto</p></div>`;
-            }
+            window.changeQty = async (id, delta) => {
+                const p = prodData.find(i => i.id === id);
+                const newQty = Math.max(0, p.qty + delta);
+                if (delta === -1 && p.qty === 0) {
+                    if(confirm("Eliminare definitivamente?")) await deleteDoc(doc(db, "prodotti", id));
+                } else {
+                    await updateDoc(doc(db, "prodotti", id), { qty: newQty });
+                }
+            };
             
-            items.forEach(p => {
-                list.innerHTML += `
+            window.fetchProductAPI = async (barcode) => {
+                try {
+                    // 1. Alert di debug: capiamo se il barcode viene letto
+                    // alert("Barcode rilevato: " + barcode); 
+                    
+                    const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
+                    const data = await res.json();
+                    
+                    if (data.status === 1) {
+                        const p = data.product;
+                        
+                        // Creiamo l'oggetto pulito assicurandoci che non ci siano valori 'undefined'
+                        const nuovoProdotto = {
+                            userId: currentUser.uid,
+                            barcode: barcode || "",
+                            nome: p.product_name || p.product_name_it || 'Prodotto Ignoto',
+                            img: p.image_url || 'https://via.placeholder.com/150',
+                            categoria: 'Altro',
+                            qty: 1,
+                            updatedAt: new Date()
+                        };
+                        
+                        // 2. Tentativo di salvataggio su Firestore
+                        await addDoc(collection(db, "prodotti"), nuovoProdotto);
+                        // alert("Prodotto aggiunto con successo!");
+                        
+                    } else {
+                        alert("Codice a barre non trovato nel database mondiale. Inseriscilo manualmente.");
+                        openManualModal();
+                    }
+                } catch (e) {
+                    // Questo alert ti dirà se il problema è la connessione o Firestore
+                    alert("Errore durante l'aggiunta: " + e.message);
+                }
+            };
+            
+            // --- UI RENDERING ---
+            window.renderDispensa = () => {
+                const list = document.getElementById('dispensa-list');
+                list.innerHTML = '';
+                let items = prodData;
+                if(currentView === 'low') items = items.filter(i => i.qty === 0);
+                if(currentFilter !== 'all') items = items.filter(i => i.categoria === currentFilter);
+                if(searchQuery !== '') items = items.filter(i => i.nome.toLowerCase().includes(searchQuery));
+                
+                if(items.length === 0) {
+                    list.innerHTML = `<div class="text-center py-20 text-slate-300"><i data-lucide="search-x" class="w-10 h-10 mx-auto mb-2 opacity-20"></i><p class="text-sm font-medium">Vuoto</p></div>`;
+                }
+                
+                items.forEach(p => {
+                    list.innerHTML += `
                     <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4 active:scale-[0.98] transition-transform">
                         <img src="${p.img}" class="w-16 h-16 object-cover rounded-xl bg-slate-50" onclick="openManualModal('${p.id}')">
                         <div class="flex-1 min-w-0" onclick="openManualModal('${p.id}')">
@@ -296,63 +308,63 @@ window.fetchProductAPI = async (barcode) => {
                             <button onclick="changeQty('${p.id}', 1)" class="w-8 h-8 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg text-lg font-bold">+</button>
                         </div>
                     </div>`;
-            });
-            lucide.createIcons();
-        };
-        
-        // --- ALTRE FUNZIONI (Scanner, Search, Filtri) ---
-        let html5QrCode;
-        window.toggleScanner = () => {
-            const container = document.getElementById('scanner-container');
-            if (container.classList.contains('hidden')) {
-                container.classList.remove('hidden');
-                html5QrCode = new Html5Qrcode("reader");
-                html5QrCode.start({ facingMode: "environment" }, { fps: 20, qrbox: { width: 250, height: 150 } }, (text) => {
-                    html5QrCode.stop().then(() => {
-                        container.classList.add('hidden');
-                        const esistente = prodData.find(i => i.barcode === text);
-                        if(esistente) changeQty(esistente.id, 1); else fetchProductAPI(text);
-                    });
                 });
-            } else { container.classList.add('hidden'); if(html5QrCode) html5QrCode.stop(); }
-        };
-        
-        window.setFilter = (cat) => {
-            currentFilter = cat;
-            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.toggle('active', btn.innerText === (cat === 'all' ? 'TUTTI' : (cat === 'Pasta & Riso' ? 'PASTA' : cat.toUpperCase()))));
-            renderDispensa();
-        };
-        
-        window.setView = (view) => {
-            currentView = view;
-            document.getElementById('nav-all').classList.toggle('active', view === 'all');
-            document.getElementById('nav-low').classList.toggle('active', view === 'low');
-            renderDispensa();
-        };
-        
-        window.handleSearch = () => {
-            searchQuery = document.getElementById('search-input').value.toLowerCase();
-            renderDispensa();
-        };
-        
-        window.openManualModal = (id = null) => {
-            const modal = document.getElementById('manual-modal');
-            if(id) {
-                const p = prodData.find(i => i.id === id);
-                document.getElementById('edit-id').value = p.id;
-                document.getElementById('m-nome').value = p.nome;
-                document.getElementById('m-cat').value = p.categoria;
-            } else {
-                document.getElementById('edit-id').value = '';
-                document.getElementById('m-nome').value = '';
-                document.getElementById('m-cat').value = 'Altro';
-            }
-            modal.classList.add('active');
-        };
-        
-        window.closeManualModal = () => document.getElementById('manual-modal').classList.remove('active');
-        
-        lucide.createIcons();
-    </script>
-</body>
-</html>
+                lucide.createIcons();
+            };
+            
+            // --- ALTRE FUNZIONI (Scanner, Search, Filtri) ---
+            let html5QrCode;
+            window.toggleScanner = () => {
+                const container = document.getElementById('scanner-container');
+                if (container.classList.contains('hidden')) {
+                    container.classList.remove('hidden');
+                    html5QrCode = new Html5Qrcode("reader");
+                    html5QrCode.start({ facingMode: "environment" }, { fps: 20, qrbox: { width: 250, height: 150 } }, (text) => {
+                        html5QrCode.stop().then(() => {
+                            container.classList.add('hidden');
+                            const esistente = prodData.find(i => i.barcode === text);
+                            if(esistente) changeQty(esistente.id, 1); else fetchProductAPI(text);
+                        });
+                    });
+                } else { container.classList.add('hidden'); if(html5QrCode) html5QrCode.stop(); }
+            };
+            
+            window.setFilter = (cat) => {
+                currentFilter = cat;
+                document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.toggle('active', btn.innerText === (cat === 'all' ? 'TUTTI' : (cat === 'Pasta & Riso' ? 'PASTA' : cat.toUpperCase()))));
+                renderDispensa();
+            };
+            
+            window.setView = (view) => {
+                currentView = view;
+                document.getElementById('nav-all').classList.toggle('active', view === 'all');
+                document.getElementById('nav-low').classList.toggle('active', view === 'low');
+                renderDispensa();
+            };
+            
+            window.handleSearch = () => {
+                searchQuery = document.getElementById('search-input').value.toLowerCase();
+                renderDispensa();
+            };
+            
+            window.openManualModal = (id = null) => {
+                const modal = document.getElementById('manual-modal');
+                if(id) {
+                    const p = prodData.find(i => i.id === id);
+                    document.getElementById('edit-id').value = p.id;
+                    document.getElementById('m-nome').value = p.nome;
+                    document.getElementById('m-cat').value = p.categoria;
+                } else {
+                    document.getElementById('edit-id').value = '';
+                    document.getElementById('m-nome').value = '';
+                    document.getElementById('m-cat').value = 'Altro';
+                }
+                modal.classList.add('active');
+            };
+            
+            window.closeManualModal = () => document.getElementById('manual-modal').classList.remove('active');
+            
+            lucide.createIcons();
+        </script>
+    </body>
+    </html>
