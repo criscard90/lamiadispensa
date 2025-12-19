@@ -207,46 +207,52 @@
                 });
             }
             
-            window.handleSave = async () => {
-                const id = document.getElementById('edit-id').value;
-                const nome = document.getElementById('m-nome').value.trim();
-                const categoria = document.getElementById('m-cat').value;
-                if(!nome) return;
-                
-                try {
-                    // Se non stiamo modificando un prodotto esistente (id vuoto), cerchiamo un duplicato
-                    if (!id) {
-                        const esistente = prodData.find(p => p.nome.toLowerCase() === nome.toLowerCase());
-                        if (esistente) {
-                            if (confirm(`"${nome}" è già in dispensa. Vuoi aggiungere un'unità a quello esistente?`)) {
-                                await changeQty(esistente.id, 1);
-                                closeManualModal();
-                            }
-                            return; // Esce per evitare di creare un duplicato
-                        }
-                    }
-                    
-                    const data = { 
-                        nome: nome, 
-                        categoria: categoria, 
-                        userId: currentUser.uid, 
-                        updatedAt: new Date()
-                    };
-                    
-                    if(id) {
-                        await updateDoc(doc(db, "prodotti", id), data);
-                    } else {
-                        await addDoc(collection(db, "prodotti"), { 
-                            ...data, 
-                            qty: 1, 
-                            img: 'https://cdn-icons-png.flaticon.com/512/679/679821.png'
-                        });
-                    }
+window.handleSave = async () => {
+    const id = document.getElementById('edit-id').value;
+    const nome = document.getElementById('m-nome').value.trim();
+    const categoria = document.getElementById('m-cat').value;
+    if(!nome) return;
+
+    try {
+        if (!id) {
+            // LOGICA NUOVO PRODOTTO
+            const esistente = prodData.find(p => p.nome.toLowerCase() === nome.toLowerCase());
+            if (esistente) {
+                if (confirm(`"${nome}" è già in dispensa. Aggiungo +1?`)) {
+                    await changeQty(esistente.id, 1);
                     closeManualModal();
-                } catch (e) {
-                    alert("Errore: " + e.message);
                 }
-            };
+                return;
+            }
+
+            await addDoc(collection(db, "prodotti"), { 
+                nome: nome,
+                categoria: categoria,
+                userId: currentUser.uid,
+                qty: 1,
+                img: 'https://cdn-icons-png.flaticon.com/512/679/679821.png', // Foto default solo per i NUOVI
+                updatedAt: new Date(),
+                barcode: null
+            });
+        } else {
+            // LOGICA MODIFICA (UPDATE)
+            // Recuperiamo il prodotto originale dai nostri dati locali per non perdere img e barcode
+            const prodottoOriginale = prodData.find(p => p.id === id);
+            
+            await updateDoc(doc(db, "prodotti", id), { 
+                nome: nome,
+                categoria: categoria,
+                // Manteniamo i valori esistenti se presenti, altrimenti mettiamo default
+                img: prodottoOriginale.img || 'https://cdn-icons-png.flaticon.com/512/679/679821.png',
+                barcode: prodottoOriginale.barcode || null,
+                updatedAt: new Date()
+            });
+        }
+        closeManualModal();
+    } catch (e) {
+        alert("Errore nel salvataggio: " + e.message);
+    }
+};
             
             window.changeQty = async (id, delta) => {
                 const p = prodData.find(i => i.id === id);
