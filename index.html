@@ -3,63 +3,105 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Dispensa Pro</title>
+    <title>La Mia Dispensa</title>
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        body { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+        
+        /* Gestione Stati Iniziali (Logica SmartPlanner) */
+        #loadingScreen { position: fixed; inset: 0; z-index: 9999; background-color: #f8fafc; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.3s ease; }
+        #authOverlay { display: none; }
+        #appContent { display: none; }
+        .flex-active { display: flex !important; }
+        .block-active { display: block !important; }
+
+        .spinner { width: 40px; height: 40px; border: 4px solid #e2e8f0; border-top: 4px solid #4f46e5; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        #reader video { border-radius: 1rem; object-fit: cover !important; }
-        /* Stili Filtri Categoria */
         .filter-btn.active { background-color: white; color: #4f46e5; font-weight: 800; border-color: white; }
-        /* Stili Navigazione Basso */
-        .nav-btn { color: #cbd5e1; transition: all 0.2s; } /* Grigio slate-300 */
-        .nav-btn.active { color: #4f46e5; } /* Indigo-600 */
+        .nav-btn { color: #cbd5e1; transition: all 0.2s; }
+        .nav-btn.active { color: #4f46e5; }
         
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
         .modal.active { display: flex; }
+        #reader video { border-radius: 1.5rem; object-fit: cover !important; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900 pb-28">
+<body class="pb-28">
 
-    <header class="bg-indigo-600 text-white shadow-lg sticky top-0 z-40">
-        <div class="max-w-md mx-auto p-4 space-y-4">
-            <div class="flex justify-between items-center">
-                <h1 class="text-xl font-bold flex items-center gap-2"><i data-lucide="refrigerator"></i> Dispensa</h1>
-                <div class="flex gap-2">
-                    <button onclick="openManualModal()" class="bg-indigo-500 p-2 rounded-xl active:scale-95"><i data-lucide="plus"></i></button>
-                    <button onclick="toggleScanner()" class="bg-white text-indigo-600 p-2 rounded-xl shadow-md active:scale-95"><i data-lucide="scan-barcode"></i></button>
+    <div id="loadingScreen">
+        <div class="spinner"></div>
+        <p class="mt-4 text-slate-400 font-medium animate-pulse">La mia dispensa...</p>
+    </div>
+
+    <div id="authOverlay" class="fixed inset-0 z-[100] bg-slate-900 flex-col items-center justify-center p-6 text-center">
+        <div class="bg-white p-8 rounded-[2.5rem] shadow-2xl max-w-sm w-full">
+            <div class="w-20 h-20 bg-gradient-to-tr from-indigo-600 to-purple-600 rounded-3xl mx-auto mb-6 flex items-center justify-center text-white shadow-xl">
+                <i data-lucide="refrigerator" class="w-10 h-10"></i>
+            </div>
+            <h2 class="text-3xl font-black mb-3 text-slate-800">La Dispensa</h2>
+            <p class="text-slate-500 text-sm mb-8">Scansiona, organizza e non restare mai senza scorte!</p>
+            <button id="loginBtn" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-3 active:scale-95 transition-all">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5"> Accedi con Google
+            </button>
+        </div>
+    </div>
+
+    <div id="appContent">
+        <header class="bg-indigo-600 text-white shadow-lg sticky top-0 z-40">
+            <div class="max-w-md mx-auto p-4 space-y-4">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <img id="user-photo" src="" class="w-9 h-9 rounded-full border-2 border-white/20 shadow-sm">
+                        <h1 class="text-lg font-bold tracking-tight">Dispensa</h1>
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="logoutBtn" class="p-2 opacity-60 hover:opacity-100 transition-opacity"><i data-lucide="log-out" class="w-5 h-5"></i></button>
+                        <button onclick="openManualModal()" class="bg-indigo-500 p-2 rounded-xl active:scale-95 transition-transform"><i data-lucide="plus"></i></button>
+                        <button onclick="toggleScanner()" class="bg-white text-indigo-600 p-2 rounded-xl shadow-md active:scale-95 transition-transform"><i data-lucide="scan-barcode"></i></button>
+                    </div>
+                </div>
+
+                <div class="relative">
+                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-300"></i>
+                    <input type="text" id="search-input" oninput="handleSearch()" placeholder="Cerca prodotto..." 
+                           class="w-full bg-indigo-700/50 border-none rounded-xl py-2.5 pl-10 pr-4 text-sm placeholder:text-indigo-300 focus:ring-2 focus:ring-white outline-none">
+                </div>
+
+                <div class="overflow-x-auto no-scrollbar flex gap-2 pb-1">
+                    <button onclick="setFilter('all')" class="filter-btn active shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[11px] uppercase tracking-wider">Tutti</button>
+                    <button onclick="setFilter('Pasta & Riso')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[11px] uppercase tracking-wider">Pasta</button>
+                    <button onclick="setFilter('Freschi')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[11px] uppercase tracking-wider">Freschi</button>
+                    <button onclick="setFilter('Conserve')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[11px] uppercase tracking-wider">Conserve</button>
+                    <button onclick="setFilter('Surgelati')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[11px] uppercase tracking-wider">Surgelati</button>
                 </div>
             </div>
+        </header>
 
-            <div class="relative">
-                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-300"></i>
-                <input type="text" id="search-input" oninput="handleSearch()" placeholder="Cerca un prodotto..." 
-                       class="w-full bg-indigo-700/50 border-none rounded-xl py-2.5 pl-10 pr-4 text-sm placeholder:text-indigo-300 focus:ring-2 focus:ring-white outline-none">
+        <main class="max-w-md mx-auto p-4">
+            <div id="scanner-container" class="hidden mb-6 bg-white p-4 rounded-3xl shadow-xl border-2 border-indigo-100">
+                <div id="reader"></div>
+                <button onclick="toggleScanner()" class="w-full mt-4 py-2 text-red-500 font-bold text-xs uppercase tracking-widest">Annulla Scansione</button>
             </div>
+            <div id="dispensa-list" class="grid gap-3"></div>
+        </main>
 
-            <div class="overflow-x-auto no-scrollbar flex gap-2 pb-1" id="category-filters">
-                <button onclick="setFilter('all')" class="filter-btn active shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[11px] uppercase tracking-wider">Tutti</button>
-                <button onclick="setFilter('Pasta & Riso')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[11px] uppercase tracking-wider">Pasta & Riso</button>
-                <button onclick="setFilter('Freschi')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[11px] uppercase tracking-wider">Freschi</button>
-                <button onclick="setFilter('Conserve')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[11px] uppercase tracking-wider">Conserve</button>
-                <button onclick="setFilter('Surgelati')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[11px] uppercase tracking-wider">Surgelati</button>
-                <button onclick="setFilter('Altro')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[11px] uppercase tracking-wider">Altro</button>
-            </div>
-        </div>
-    </header>
-
-    <main class="max-w-md mx-auto p-4">
-        <div id="scanner-container" class="hidden mb-6 bg-white p-4 rounded-3xl shadow-xl border-2 border-indigo-100">
-            <div id="reader"></div>
-            <button onclick="toggleScanner()" class="w-full mt-4 py-2 text-red-500 font-bold text-xs uppercase tracking-widest text-center">Annulla Scansione</button>
-        </div>
-
-        <div id="dispensa-list" class="grid gap-3"></div>
-    </main>
+        <nav class="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t p-3 flex justify-around shadow-2xl z-40">
+            <button onclick="setView('all')" id="nav-all" class="nav-btn active flex flex-col items-center gap-1">
+                <i data-lucide="layout-grid" class="w-5 h-5"></i>
+                <span class="text-[10px] font-black uppercase tracking-tighter">Dispensa</span>
+            </button>
+            <button onclick="setView('low')" id="nav-low" class="nav-btn flex flex-col items-center gap-1">
+                <i data-lucide="shopping-basket" class="w-5 h-5"></i>
+                <span class="text-[10px] font-black uppercase tracking-tighter">Esauriti</span>
+            </button>
+        </nav>
+    </div>
 
     <div id="manual-modal" class="modal p-4">
         <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
@@ -83,203 +125,215 @@
             </div>
             <div class="flex gap-3 mt-8">
                 <button onclick="closeManualModal()" class="flex-1 py-3 text-slate-400 font-bold text-sm">CHIUDI</button>
-                <button onclick="saveProduct()" class="flex-1 py-3 bg-indigo-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-indigo-100 uppercase">Salva</button>
+                <button onclick="handleSave()" class="flex-1 py-3 bg-indigo-600 text-white rounded-2xl font-bold text-sm uppercase">Salva</button>
             </div>
         </div>
     </div>
 
-    <nav class="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t p-3 flex justify-around shadow-2xl z-40">
-        <button onclick="setView('all')" id="nav-all" class="nav-btn active flex flex-col items-center gap-1">
-            <i data-lucide="layout-grid" class="w-5 h-5"></i>
-            <span class="text-[10px] font-black uppercase tracking-tighter">Dispensa</span>
-        </button>
-        <button onclick="setView('low')" id="nav-low" class="nav-btn flex flex-col items-center gap-1">
-            <i data-lucide="shopping-basket" class="w-5 h-5"></i>
-            <span class="text-[10px] font-black uppercase tracking-tighter">Esauriti</span>
-        </button>
-    </nav>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-    <script>
-        let dispensa = JSON.parse(localStorage.getItem('dispensa')) || [];
+        // CONFIGURAZIONE FIREBASE (Usa la stessa del tuo SmartPlanner o una specifica per Dispensa)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBZ8vqYNgqhCe2Bi21CaRiOp5jiz9EEeFo", // Sostituisci se diversa
+            authDomain: "smartplannerinv.firebaseapp.com",
+            projectId: "smartplannerinv",
+            storageBucket: "smartplannerinv.firebasestorage.app",
+            messagingSenderId: "845850448866",
+            appId: "1:845850448866:web:bb849a171023ce57725fbb"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+
+        let currentUser = null;
+        let prodData = [];
         let currentFilter = 'all';
-        let currentView = 'all'; 
+        let currentView = 'all';
         let searchQuery = '';
-        let html5QrCode;
+        let unsub = null;
 
-        lucide.createIcons();
+        // --- AUTH & PERSISTENCE ---
+        setPersistence(auth, browserLocalPersistence);
 
-        function toggleScanner() {
-            const container = document.getElementById('scanner-container');
-            if (container.classList.contains('hidden')) {
-                container.classList.remove('hidden');
-                startScanner();
+        document.getElementById('loginBtn').onclick = () => signInWithPopup(auth, provider);
+        document.getElementById('logoutBtn').onclick = () => { if(confirm("Uscire?")) signOut(auth); };
+
+        onAuthStateChanged(auth, (user) => {
+            const authOverlay = document.getElementById('authOverlay');
+            const appContent = document.getElementById('appContent');
+            const loader = document.getElementById('loadingScreen');
+
+            if (user) {
+                currentUser = user;
+                document.getElementById('user-photo').src = user.photoURL;
+                authOverlay.classList.remove('flex-active');
+                appContent.classList.add('block-active');
+                startSync();
             } else {
-                container.classList.add('hidden');
-                if(html5QrCode) html5QrCode.stop();
-            }
-        }
-
-        function startScanner() {
-            html5QrCode = new Html5Qrcode("reader");
-            html5QrCode.start({ facingMode: "environment" }, { fps: 20, qrbox: { width: 250, height: 150 } }, 
-            (decodedText) => {
-                html5QrCode.stop().then(() => {
-                    document.getElementById('scanner-container').classList.add('hidden');
-                    fetchProduct(decodedText);
-                });
-            }).catch(err => console.error(err));
-        }
-
-        async function fetchProduct(barcode) {
-            const esistente = dispensa.find(i => i.id === barcode);
-            if (esistente) {
-                if (confirm(`"${esistente.name}" già in dispensa. Aggiungo +1?`)) {
-                    changeQty(barcode, 1);
-                }
-                return;
+                currentUser = null;
+                appContent.classList.remove('block-active');
+                authOverlay.classList.add('flex-active');
+                if(unsub) unsub();
             }
 
-            try {
-                const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
-                const data = await res.json();
-                
-                if (data.status === 1) {
-                    const p = data.product;
-                    addProdotto({
-                        id: barcode,
-                        name: p.product_name || p.product_name_it || 'Prodotto Sconosciuto',
-                        img: p.image_url || 'https://via.placeholder.com/150?text=Food',
-                        category: 'Altro',
-                        qty: 1
-                    });
-                } else {
-                    alert("Barcode non trovato. Inseriscilo manualmente!");
-                    openManualModal();
-                }
-            } catch (e) { alert("Connessione assente o errore API"); }
-        }
+            // Nascondi Loader (Logica SmartPlanner)
+            setTimeout(() => {
+                loader.style.opacity = '0';
+                setTimeout(() => loader.style.display = 'none', 300);
+            }, 500);
+        });
 
-        function addProdotto(p) {
-            dispensa.push(p);
-            saveAndRender();
-        }
-
-        function handleSearch() {
-            searchQuery = document.getElementById('search-input').value.toLowerCase();
-            renderDispensa();
-        }
-
-        function setFilter(cat) {
-            currentFilter = cat;
-            document.querySelectorAll('.filter-btn').forEach(btn => {
-                const btnText = btn.innerText.toLowerCase();
-                const targetText = cat === 'all' ? 'tutti' : cat.toLowerCase();
-                btn.classList.toggle('active', btnText === targetText);
+        // --- FIRESTORE LOGIC ---
+        function startSync() {
+            const q = query(
+                collection(db, "prodotti"), 
+                where("userId", "==", currentUser.uid),
+                orderBy("nome", "asc")
+            );
+            
+            unsub = onSnapshot(q, (snapshot) => {
+                prodData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderDispensa();
             });
-            renderDispensa();
         }
 
-        function setView(view) {
-            currentView = view;
-            // Gestione highlight pulsanti navigazione
-            document.getElementById('nav-all').classList.toggle('active', view === 'all');
-            document.getElementById('nav-low').classList.toggle('active', view === 'low');
-            renderDispensa();
-        }
-
-        function saveProduct() {
+        window.handleSave = async () => {
             const id = document.getElementById('edit-id').value;
             const nome = document.getElementById('m-nome').value;
-            const cat = document.getElementById('m-cat').value;
+            const categoria = document.getElementById('m-cat').value;
+            if(!nome) return;
 
-            if(!nome) return alert("Nome obbligatorio");
+            const data = { nome, categoria, userId: currentUser.uid, updatedAt: new Date() };
 
             if(id) {
-                const idx = dispensa.findIndex(i => i.id === id);
-                dispensa[idx].name = nome;
-                dispensa[idx].category = cat;
+                await updateDoc(doc(db, "prodotti", id), data);
             } else {
-                addProdotto({
-                    id: 'MAN-' + Date.now(),
-                    name: nome,
-                    img: 'https://cdn-icons-png.flaticon.com/512/679/679821.png',
-                    category: cat,
-                    qty: 1
+                await addDoc(collection(db, "prodotti"), { 
+                    ...data, 
+                    qty: 1, 
+                    img: 'https://cdn-icons-png.flaticon.com/512/679/679821.png'
                 });
             }
             closeManualModal();
-            saveAndRender();
-        }
+        };
 
-        function changeQty(id, delta) {
-            const index = dispensa.findIndex(i => i.id === id);
-            if (delta === -1 && dispensa[index].qty === 0) {
-                if(confirm("Eliminare definitivamente?")) dispensa.splice(index, 1);
+        window.changeQty = async (id, delta) => {
+            const p = prodData.find(i => i.id === id);
+            const newQty = Math.max(0, p.qty + delta);
+            if (delta === -1 && p.qty === 0) {
+                if(confirm("Eliminare definitivamente?")) await deleteDoc(doc(db, "prodotti", id));
             } else {
-                dispensa[index].qty = Math.max(0, dispensa[index].qty + delta);
+                await updateDoc(doc(db, "prodotti", id), { qty: newQty });
             }
-            saveAndRender();
-        }
+        };
 
-        function saveAndRender() {
-            localStorage.setItem('dispensa', JSON.stringify(dispensa));
-            renderDispensa();
-        }
+        window.fetchProductAPI = async (barcode) => {
+            try {
+                const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
+                const data = await res.json();
+                if (data.status === 1) {
+                    const p = data.product;
+                    await addDoc(collection(db, "prodotti"), {
+                        userId: currentUser.uid,
+                        barcode: barcode,
+                        nome: p.product_name || p.product_name_it || 'Ignoto',
+                        img: p.image_url || 'https://via.placeholder.com/150',
+                        categoria: 'Altro',
+                        qty: 1
+                    });
+                } else { alert("Barcode non trovato."); openManualModal(); }
+            } catch (e) { alert("Errore connessione."); }
+        };
 
-        function renderDispensa() {
+        // --- UI RENDERING ---
+        window.renderDispensa = () => {
             const list = document.getElementById('dispensa-list');
             list.innerHTML = '';
-            
-            let items = dispensa;
+            let items = prodData;
             if(currentView === 'low') items = items.filter(i => i.qty === 0);
-            if(currentFilter !== 'all') items = items.filter(i => i.category === currentFilter);
-            if(searchQuery !== '') items = items.filter(i => i.name.toLowerCase().includes(searchQuery));
+            if(currentFilter !== 'all') items = items.filter(i => i.categoria === currentFilter);
+            if(searchQuery !== '') items = items.filter(i => i.nome.toLowerCase().includes(searchQuery));
 
             if(items.length === 0) {
-                list.innerHTML = `
-                    <div class="text-center py-20 text-slate-300">
-                        <i data-lucide="search-x" class="w-12 h-12 mx-auto mb-2 opacity-20"></i>
-                        <p class="text-sm font-medium">Nessun prodotto trovato</p>
-                    </div>`;
+                list.innerHTML = `<div class="text-center py-20 text-slate-300"><i data-lucide="search-x" class="w-10 h-10 mx-auto mb-2 opacity-20"></i><p class="text-sm font-medium">Vuoto</p></div>`;
             }
 
             items.forEach(p => {
                 list.innerHTML += `
                     <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4 active:scale-[0.98] transition-transform">
-                        <img src="${p.img}" class="w-16 h-16 object-cover rounded-xl bg-slate-50 shadow-inner" onclick="openManualModal('${p.id}')">
+                        <img src="${p.img}" class="w-16 h-16 object-cover rounded-xl bg-slate-50" onclick="openManualModal('${p.id}')">
                         <div class="flex-1 min-w-0" onclick="openManualModal('${p.id}')">
-                            <h3 class="font-bold text-slate-800 text-sm truncate leading-tight">${p.name}</h3>
-                            <span class="inline-block mt-1 px-2 py-0.5 bg-indigo-50 text-indigo-500 rounded text-[9px] font-black uppercase tracking-widest border border-indigo-100">${p.category}</span>
+                            <h3 class="font-bold text-slate-800 text-sm truncate leading-tight">${p.nome}</h3>
+                            <span class="inline-block mt-1 px-2 py-0.5 bg-indigo-50 text-indigo-500 rounded text-[9px] font-black uppercase tracking-widest border border-indigo-100">${p.categoria}</span>
                         </div>
                         <div class="flex items-center gap-2 bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
                             <button onclick="changeQty('${p.id}', -1)" class="w-8 h-8 bg-white rounded-xl flex items-center justify-center shadow-sm text-lg font-bold text-slate-400">-</button>
                             <span class="font-black w-6 text-center text-sm ${p.qty === 0 ? 'text-red-500' : 'text-indigo-600'}">${p.qty}</span>
                             <button onclick="changeQty('${p.id}', 1)" class="w-8 h-8 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg text-lg font-bold">+</button>
                         </div>
-                    </div>
-                `;
+                    </div>`;
             });
             lucide.createIcons();
-        }
+        };
 
-        function openManualModal(id = null) {
+        // --- ALTRE FUNZIONI (Scanner, Search, Filtri) ---
+        let html5QrCode;
+        window.toggleScanner = () => {
+            const container = document.getElementById('scanner-container');
+            if (container.classList.contains('hidden')) {
+                container.classList.remove('hidden');
+                html5QrCode = new Html5Qrcode("reader");
+                html5QrCode.start({ facingMode: "environment" }, { fps: 20, qrbox: { width: 250, height: 150 } }, (text) => {
+                    html5QrCode.stop().then(() => {
+                        container.classList.add('hidden');
+                        const esistente = prodData.find(i => i.barcode === text);
+                        if(esistente) changeQty(esistente.id, 1); else fetchProductAPI(text);
+                    });
+                });
+            } else { container.classList.add('hidden'); if(html5QrCode) html5QrCode.stop(); }
+        };
+
+        window.setFilter = (cat) => {
+            currentFilter = cat;
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.toggle('active', btn.innerText === (cat === 'all' ? 'TUTTI' : (cat === 'Pasta & Riso' ? 'PASTA' : cat.toUpperCase()))));
+            renderDispensa();
+        };
+
+        window.setView = (view) => {
+            currentView = view;
+            document.getElementById('nav-all').classList.toggle('active', view === 'all');
+            document.getElementById('nav-low').classList.toggle('active', view === 'low');
+            renderDispensa();
+        };
+
+        window.handleSearch = () => {
+            searchQuery = document.getElementById('search-input').value.toLowerCase();
+            renderDispensa();
+        };
+
+        window.openManualModal = (id = null) => {
             const modal = document.getElementById('manual-modal');
             if(id) {
-                const p = dispensa.find(i => i.id === id);
+                const p = prodData.find(i => i.id === id);
                 document.getElementById('edit-id').value = p.id;
-                document.getElementById('m-nome').value = p.name;
-                document.getElementById('m-cat').value = p.category;
+                document.getElementById('m-nome').value = p.nome;
+                document.getElementById('m-cat').value = p.categoria;
             } else {
                 document.getElementById('edit-id').value = '';
                 document.getElementById('m-nome').value = '';
                 document.getElementById('m-cat').value = 'Altro';
             }
             modal.classList.add('active');
-        }
+        };
 
-        function closeManualModal() { document.getElementById('manual-modal').classList.remove('active'); }
+        window.closeManualModal = () => document.getElementById('manual-modal').classList.remove('active');
 
-        renderDispensa();
+        lucide.createIcons();
     </script>
 </body>
 </html>
