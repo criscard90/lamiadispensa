@@ -28,9 +28,41 @@
         
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
         .modal.active { display: flex; }
-        #reader video { border-radius: 1.5rem; object-fit: cover !important; }
-        
-        /* NUOVO: Pulsante Flottante (FAB) */
+
+        /* FIX ORIENTAMENTO: Messaggio se ruotato */
+        #portrait-lock {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: #4f46e5;
+            color: white;
+            z-index: 10000;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        @media (orientation: landscape) {
+            #portrait-lock { display: flex; }
+        }
+
+        /* SCANNER RIDOTTO */
+        #scanner-container {
+            max-width: 340px;
+            margin: 0 auto;
+            position: relative;
+        }
+        #reader { 
+            width: 100% !important; 
+            border: none !important;
+            overflow: hidden;
+            border-radius: 2rem;
+        }
+        #reader video { 
+            object-fit: cover !important; 
+            height: 250px !important; 
+        }
+
         .fab-scan {
             position: fixed;
             bottom: 6rem;
@@ -51,6 +83,12 @@
     </style>
 </head>
 <body class="pb-32">
+
+    <div id="portrait-lock">
+        <i data-lucide="rotate-cw" class="w-12 h-12 mb-4 animate-spin"></i>
+        <h1 class="text-xl font-bold">Ruota il telefono</h1>
+        <p class="opacity-80">L'app funziona solo in verticale</p>
+    </div>
     
     <div id="loadingScreen">
         <div class="spinner"></div>
@@ -103,9 +141,12 @@
         </header>
         
         <main class="max-w-md mx-auto p-4">
-            <div id="scanner-container" class="hidden mb-6 bg-white p-4 rounded-3xl shadow-xl border-4 border-indigo-100">
+            <div id="scanner-container" class="hidden mb-6 bg-white p-2 rounded-[2.5rem] shadow-xl border-4 border-indigo-100">
                 <div id="reader"></div>
-                <button onclick="stopScanner()" class="w-full mt-4 py-2 text-red-500 font-bold text-xs uppercase">Chiudi Fotocamera</button>
+                <div class="absolute inset-0 pointer-events-none flex items-center justify-center pb-12">
+                    <div class="w-48 h-24 border-2 border-white/50 rounded-xl shadow-[0_0_0_999px_rgba(0,0,0,0.4)]"></div>
+                </div>
+                <button onclick="stopScanner()" class="w-full mt-2 py-2 text-red-500 font-bold text-[10px] uppercase tracking-widest">Chiudi Fotocamera</button>
             </div>
             <div id="dispensa-list" class="grid gap-3"></div>
         </main>
@@ -153,32 +194,9 @@
         </div>
     </div>
     
-    <script type="module">
-        
-        // Funzione per forzare il portrait
-        async function lockPortrait() {
-            try {
-                if (screen.orientation && screen.orientation.lock) {
-                    // Il lock richiede che l'app sia in fullscreen su molti browser
-                    await document.documentElement.requestFullscreen().catch(() => {});
-                    await screen.orientation.lock("portrait");
-                }
-            } catch (err) {
-                console.warn("Blocco orientamento non supportato o negato:", err);
-            }
-        }
-        
-        // Avvialo dopo il login o al primo tocco dell'utente
-        document.addEventListener('click', () => {
-            // I browser richiedono un'interazione utente per attivare il fullscreen/lock
-            if (window.innerHeight > window.innerWidth) { // Se è già in portrait
-                // lockPortrait(); // Opzionale: attiva solo se vuoi forzare il fullscreen
-            }
-        }, { once: true });
-        
-        
+    <script type="module">  
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         
         const firebaseConfig = {
@@ -187,8 +205,7 @@
             projectId: "lamiadispensa-6f40f",
             storageBucket: "lamiadispensa-6f40f.firebasestorage.app",
             messagingSenderId: "737295896450",
-            appId: "1:737295896450:web:98a6166f0e5c5d6ffe499b",
-            measurementId: "G-LJYK144SYK"
+            appId: "1:737295896450:web:98a6166f0e5c5d6ffe499b"
         };
         
         const app = initializeApp(firebaseConfig);
@@ -255,7 +272,7 @@
                 } else {
                     const originale = prodData.find(p => p.id === id);
                     await updateDoc(doc(db, "prodotti", id), { 
-                        nome, categoria, img: originale.img, barcode: originale.barcode, updatedAt: new Date() 
+                        nome, categoria, updatedAt: new Date() 
                     });
                 }
                 closeManualModal();
@@ -277,20 +294,25 @@
             const container = document.getElementById('scanner-container');
             if (container.classList.contains('hidden')) {
                 container.classList.remove('hidden');
-                if(isInventoryMode) container.classList.add('border-red-500');
+                
                 html5QrCode = new Html5Qrcode("reader");
-                const config = { fps: 20, qrbox: { width: 280, height: 160 }, aspectRatio: 1.77 };
+                // CONFIGURAZIONE FINESTRA PICCOLA
+                const config = { 
+                    fps: 25, 
+                    qrbox: { width: 220, height: 120 }, // Mirino rimpicciolito
+                    aspectRatio: 1.0 
+                };
                 
                 html5QrCode.start({ facingMode: "environment" }, config, async (text) => {
                     if (isScanning || (isInventoryMode && text === lastScannedCode)) return;
                     isScanning = true;
                     lastScannedCode = text;
-                    if(navigator.vibrate) navigator.vibrate(100);
+                    if(navigator.vibrate) navigator.vibrate(80);
                     
-                    if (!isInventoryMode) { await html5QrCode.stop(); container.classList.add('hidden'); }
+                    if (!isInventoryMode) { stopScanner(); }
                     await window.fetchProductAPI(text);
                     isScanning = false;
-                    setTimeout(() => { lastScannedCode = null; }, 3000);
+                    setTimeout(() => { lastScannedCode = null; }, 2500);
                 });
             } else { stopScanner(); }
         };
@@ -298,8 +320,9 @@
         window.stopScanner = () => {
             const container = document.getElementById('scanner-container');
             container.classList.add('hidden');
-            container.classList.remove('border-red-500');
-            if(html5QrCode) html5QrCode.stop();
+            if(html5QrCode) {
+                html5QrCode.stop().then(() => html5QrCode.clear()).catch(e => console.log(e));
+            }
             isScanning = false;
         };
         
@@ -319,7 +342,8 @@
                         categoria: 'Altro', qty: 1, updatedAt: new Date()
                     });
                 } else if (!isInventoryMode) {
-                    alert("Non trovato."); window.openManualModal();
+                    alert("Prodotto non trovato nel database."); 
+                    window.openManualModal();
                 }
             } catch (e) { console.error(e); }
         };
@@ -352,8 +376,18 @@
             lucide.createIcons();
         };
         
-        window.setFilter = (cat) => { currentFilter = cat; renderDispensa(); };
-        window.setView = (view) => { currentView = view; renderDispensa(); };
+        window.setFilter = (cat) => { 
+            currentFilter = cat; 
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            renderDispensa(); 
+        };
+        window.setView = (view) => { 
+            currentView = view; 
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`nav-${view}`).classList.add('active');
+            renderDispensa(); 
+        };
         window.handleSearch = () => { searchQuery = document.getElementById('search-input').value.toLowerCase(); renderDispensa(); };
         window.openManualModal = (id = null) => {
             const modal = document.getElementById('manual-modal');
