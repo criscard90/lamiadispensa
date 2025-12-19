@@ -207,33 +207,46 @@
                 });
             }
             
-window.handleSave = async () => {
-    const id = document.getElementById('edit-id').value;
-    const nome = document.getElementById('m-nome').value;
-    const categoria = document.getElementById('m-cat').value;
-    if(!nome) return;
-
-    try {
-        const data = { 
-            nome: nome, 
-            categoria: categoria, 
-            userId: currentUser.uid, 
-            updatedAt: new Date(),
-            qty: 1,
-            img: 'https://cdn-icons-png.flaticon.com/512/679/679821.png'
-        };
-
-        if(id) {
-            await updateDoc(doc(db, "prodotti", id), data);
-        } else {
-            // USIAMO IL RIFERIMENTO DIRETTO ALLA COLLEZIONE
-            await addDoc(collection(db, "prodotti"), data);
-        }
-        closeManualModal();
-    } catch (e) {
-        alert("Errore nel salvataggio: " + e.message);
-    }
-};
+            window.handleSave = async () => {
+                const id = document.getElementById('edit-id').value;
+                const nome = document.getElementById('m-nome').value.trim();
+                const categoria = document.getElementById('m-cat').value;
+                if(!nome) return;
+                
+                try {
+                    // Se non stiamo modificando un prodotto esistente (id vuoto), cerchiamo un duplicato
+                    if (!id) {
+                        const esistente = prodData.find(p => p.nome.toLowerCase() === nome.toLowerCase());
+                        if (esistente) {
+                            if (confirm(`"${nome}" è già in dispensa. Vuoi aggiungere un'unità a quello esistente?`)) {
+                                await changeQty(esistente.id, 1);
+                                closeManualModal();
+                            }
+                            return; // Esce per evitare di creare un duplicato
+                        }
+                    }
+                    
+                    const data = { 
+                        nome: nome, 
+                        categoria: categoria, 
+                        userId: currentUser.uid, 
+                        updatedAt: new Date()
+                    };
+                    
+                    if(id) {
+                        await updateDoc(doc(db, "prodotti", id), data);
+                    } else {
+                        await addDoc(collection(db, "prodotti"), { 
+                            ...data, 
+                            qty: 1, 
+                            img: 'https://cdn-icons-png.flaticon.com/512/679/679821.png'
+                        });
+                    }
+                    closeManualModal();
+                } catch (e) {
+                    alert("Errore: " + e.message);
+                }
+            };
             
             window.changeQty = async (id, delta) => {
                 const p = prodData.find(i => i.id === id);
@@ -247,37 +260,37 @@ window.handleSave = async () => {
             
             window.fetchProductAPI = async (barcode) => {
                 try {
-                    // 1. Alert di debug: capiamo se il barcode viene letto
-                    // alert("Barcode rilevato: " + barcode); 
+                    // Controllo immediato nei dati locali già caricati
+                    const esistente = prodData.find(p => p.barcode === barcode);
                     
+                    if (esistente) {
+                        // Se esiste, incrementiamo solo la quantità senza chiamare l'API esterna
+                        await changeQty(esistente.id, 1);
+                        alert(`Prodotto già presente: aggiunta +1 unità a ${esistente.nome}`);
+                        return;
+                    }
+                    
+                    // Se non esiste, procediamo con la chiamata a OpenFoodFacts
                     const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
                     const data = await res.json();
                     
                     if (data.status === 1) {
                         const p = data.product;
-                        
-                        // Creiamo l'oggetto pulito assicurandoci che non ci siano valori 'undefined'
-                        const nuovoProdotto = {
+                        await addDoc(collection(db, "prodotti"), {
                             userId: currentUser.uid,
-                            barcode: barcode || "",
+                            barcode: barcode,
                             nome: p.product_name || p.product_name_it || 'Prodotto Ignoto',
                             img: p.image_url || 'https://via.placeholder.com/150',
                             categoria: 'Altro',
                             qty: 1,
                             updatedAt: new Date()
-                        };
-                        
-                        // 2. Tentativo di salvataggio su Firestore
-                        await addDoc(collection(db, "prodotti"), nuovoProdotto);
-                        // alert("Prodotto aggiunto con successo!");
-                        
+                        });
                     } else {
-                        alert("Codice a barre non trovato nel database mondiale. Inseriscilo manualmente.");
+                        alert("Barcode non trovato. Inseriscilo manualmente.");
                         openManualModal();
                     }
                 } catch (e) {
-                    // Questo alert ti dirà se il problema è la connessione o Firestore
-                    alert("Errore durante l'aggiunta: " + e.message);
+                    alert("Errore scansione: " + e.message);
                 }
             };
             
