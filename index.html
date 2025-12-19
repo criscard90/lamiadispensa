@@ -12,7 +12,6 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #f8fafc; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         
-        /* Gestione Stati Iniziali (Logica SmartPlanner) */
         #loadingScreen { position: fixed; inset: 0; z-index: 9999; background-color: #f8fafc; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.3s ease; }
         #authOverlay { display: none; }
         #appContent { display: none; }
@@ -30,9 +29,28 @@
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
         .modal.active { display: flex; }
         #reader video { border-radius: 1.5rem; object-fit: cover !important; }
+        
+        /* NUOVO: Pulsante Flottante (FAB) */
+        .fab-scan {
+            position: fixed;
+            bottom: 6rem;
+            right: 1.5rem;
+            width: 64px;
+            height: 64px;
+            background: #4f46e5;
+            color: white;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.5);
+            z-index: 45;
+            transition: all 0.2s;
+        }
+        .fab-scan:active { transform: scale(0.9); }
     </style>
 </head>
-<body class="pb-28">
+<body class="pb-32">
     
     <div id="loadingScreen">
         <div class="spinner"></div>
@@ -45,7 +63,6 @@
                 <i data-lucide="refrigerator" class="w-10 h-10"></i>
             </div>
             <h2 class="text-3xl font-black mb-3 text-slate-800">La Mia Dispensa</h2>
-            <p class="text-slate-500 text-sm mb-8">Scansiona, organizza e non restare mai senza scorte!</p>
             <button id="loginBtn" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-3 active:scale-95 transition-all">
                 <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5"> Accedi con Google
             </button>
@@ -61,9 +78,11 @@
                         <h1 class="text-lg font-bold tracking-tight">Dispensa</h1>
                     </div>
                     <div class="flex gap-2">
-                        <button id="logoutBtn" class="p-2 opacity-60 hover:opacity-100 transition-opacity"><i data-lucide="log-out" class="w-5 h-5"></i></button>
-                        <button onclick="openManualModal()" class="bg-indigo-500 p-2 rounded-xl active:scale-95 transition-transform"><i data-lucide="plus"></i></button>
-                        <button onclick="toggleScanner()" class="bg-white text-indigo-600 p-2 rounded-xl shadow-md active:scale-95 transition-transform"><i data-lucide="scan-barcode"></i></button>
+                        <button id="logoutBtn" class="p-2 opacity-60"><i data-lucide="log-out" class="w-5 h-5"></i></button>
+                        <button onclick="openManualModal()" class="bg-indigo-500 p-2 rounded-xl active:scale-95"><i data-lucide="plus"></i></button>
+                        <button onclick="toggleScanner(true)" class="bg-indigo-800 p-2 rounded-xl active:scale-95" title="Inventario Rapido">
+                            <i data-lucide="layers"></i>
+                        </button>
                     </div>
                 </div>
                 
@@ -84,12 +103,16 @@
         </header>
         
         <main class="max-w-md mx-auto p-4">
-            <div id="scanner-container" class="hidden mb-6 bg-white p-4 rounded-3xl shadow-xl border-2 border-indigo-100">
+            <div id="scanner-container" class="hidden mb-6 bg-white p-4 rounded-3xl shadow-xl border-4 border-indigo-100">
                 <div id="reader"></div>
-                <button onclick="toggleScanner()" class="w-full mt-4 py-2 text-red-500 font-bold text-xs uppercase tracking-widest">Annulla Scansione</button>
+                <button onclick="stopScanner()" class="w-full mt-4 py-2 text-red-500 font-bold text-xs uppercase">Chiudi Fotocamera</button>
             </div>
             <div id="dispensa-list" class="grid gap-3"></div>
         </main>
+        
+        <button onclick="toggleScanner(false)" class="fab-scan">
+            <i data-lucide="scan-barcode" class="w-8 h-8"></i>
+        </button>
         
         <nav class="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t p-3 flex justify-around shadow-2xl z-40">
             <button onclick="setView('all')" id="nav-all" class="nav-btn active flex flex-col items-center gap-1">
@@ -131,11 +154,33 @@
     </div>
     
     <script type="module">
+        
+        // Funzione per forzare il portrait
+        async function lockPortrait() {
+            try {
+                if (screen.orientation && screen.orientation.lock) {
+                    // Il lock richiede che l'app sia in fullscreen su molti browser
+                    await document.documentElement.requestFullscreen().catch(() => {});
+                    await screen.orientation.lock("portrait");
+                }
+            } catch (err) {
+                console.warn("Blocco orientamento non supportato o negato:", err);
+            }
+        }
+        
+        // Avvialo dopo il login o al primo tocco dell'utente
+        document.addEventListener('click', () => {
+            // I browser richiedono un'interazione utente per attivare il fullscreen/lock
+            if (window.innerHeight > window.innerWidth) { // Se è già in portrait
+                // lockPortrait(); // Opzionale: attiva solo se vuoi forzare il fullscreen
+            }
+        }, { once: true });
+        
+        
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         
-        // CONFIGURAZIONE FIREBASE (Usa la stessa del tuo SmartPlanner o una specifica per Dispensa)
         const firebaseConfig = {
             apiKey: "AIzaSyCIj-dDTISbk2hSBOxiCQvYXHV4v27qTqs",
             authDomain: "lamiadispensa-6f40f.firebaseapp.com",
@@ -157,18 +202,15 @@
         let currentView = 'all';
         let searchQuery = '';
         let unsub = null;
-        
-        // --- AUTH & PERSISTENCE ---
-        setPersistence(auth, browserLocalPersistence);
-        
-        document.getElementById('loginBtn').onclick = () => signInWithPopup(auth, provider);
-        document.getElementById('logoutBtn').onclick = () => { if(confirm("Uscire?")) signOut(auth); };
+        let isScanning = false;
+        let isInventoryMode = false;
+        let lastScannedCode = null;
+        let html5QrCode;
         
         onAuthStateChanged(auth, (user) => {
             const authOverlay = document.getElementById('authOverlay');
             const appContent = document.getElementById('appContent');
             const loader = document.getElementById('loadingScreen');
-            
             if (user) {
                 currentUser = user;
                 document.getElementById('user-photo').src = user.photoURL;
@@ -181,257 +223,157 @@
                 authOverlay.classList.add('flex-active');
                 if(unsub) unsub();
             }
-            
-            // Nascondi Loader (Logica SmartPlanner)
-            setTimeout(() => {
-                loader.style.opacity = '0';
-                setTimeout(() => loader.style.display = 'none', 300);
-            }, 500);
+            setTimeout(() => { loader.style.opacity = '0'; setTimeout(() => loader.style.display = 'none', 300); }, 500);
         });
         
-        // --- FIRESTORE LOGIC ---
-        // Nella parte del codice <script type="module">
-            function startSync() {
-                // Rimuoviamo orderBy per evitare l'errore dell'indice mancante
-                const q = query(
-                collection(db, "prodotti"), 
-                where("userId", "==", currentUser.uid)
-                );
-                
-                unsub = onSnapshot(q, (snapshot) => {
-                    prodData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    renderDispensa();
-                }, (error) => {
-                    // Questo ti avvisa via telefono se c'è un errore di permessi o altro
-                    alert("Errore Firestore: " + error.message);
-                });
-            }
+        function startSync() {
+            const q = query(collection(db, "prodotti"), where("userId", "==", currentUser.uid));
+            unsub = onSnapshot(q, (snapshot) => {
+                prodData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderDispensa();
+            });
+        }
+        
+        window.handleSave = async () => {
+            const id = document.getElementById('edit-id').value;
+            const nome = document.getElementById('m-nome').value.trim();
+            const categoria = document.getElementById('m-cat').value;
+            if(!nome) return;
             
-            window.handleSave = async () => {
-                const id = document.getElementById('edit-id').value;
-                const nome = document.getElementById('m-nome').value.trim();
-                const categoria = document.getElementById('m-cat').value;
-                if(!nome) return;
-                
-                try {
-                    if (!id) {
-                        // LOGICA NUOVO PRODOTTO
-                        const esistente = prodData.find(p => p.nome.toLowerCase() === nome.toLowerCase());
-                        if (esistente) {
-                            if (confirm(`"${nome}" è già in dispensa. Aggiungo +1?`)) {
-                                await changeQty(esistente.id, 1);
-                                closeManualModal();
-                            }
-                            return;
-                        }
-                        
-                        await addDoc(collection(db, "prodotti"), { 
-                            nome: nome,
-                            categoria: categoria,
-                            userId: currentUser.uid,
-                            qty: 1,
-                            img: 'https://cdn-icons-png.flaticon.com/512/679/679821.png', // Foto default solo per i NUOVI
-                            updatedAt: new Date(),
-                            barcode: null
-                        });
-                    } else {
-                        // LOGICA MODIFICA (UPDATE)
-                        // Recuperiamo il prodotto originale dai nostri dati locali per non perdere img e barcode
-                        const prodottoOriginale = prodData.find(p => p.id === id);
-                        
-                        await updateDoc(doc(db, "prodotti", id), { 
-                            nome: nome,
-                            categoria: categoria,
-                            // Manteniamo i valori esistenti se presenti, altrimenti mettiamo default
-                            img: prodottoOriginale.img || 'https://cdn-icons-png.flaticon.com/512/679/679821.png',
-                            barcode: prodottoOriginale.barcode || null,
-                            updatedAt: new Date()
-                        });
-                    }
-                    closeManualModal();
-                } catch (e) {
-                    alert("Errore nel salvataggio: " + e.message);
-                }
-            };
-            
-            window.changeQty = async (id, delta) => {
-                const p = prodData.find(i => i.id === id);
-                const newQty = Math.max(0, p.qty + delta);
-                if (delta === -1 && p.qty === 0) {
-                    if(confirm("Eliminare definitivamente?")) await deleteDoc(doc(db, "prodotti", id));
-                } else {
-                    await updateDoc(doc(db, "prodotti", id), { qty: newQty });
-                }
-            };
-            
-            let isScanning = false; // Flag per evitare scansioni multiple
-            
-            window.toggleScanner = () => {
-                const container = document.getElementById('scanner-container');
-                if (container.classList.contains('hidden')) {
-                    container.classList.remove('hidden');
-                    html5QrCode = new Html5Qrcode("reader");
-                    
-                    const config = { 
-                        fps: 15, // Leggermente meno fps per dare tempo al sensore di mettere a fuoco
-                        qrbox: { width: 280, height: 160 }, // Rettangolo orizzontale ideale per barcode
-                        aspectRatio: 1.777778 // 16:9
-                    };
-                    
-                    // Specifichiamo di cercare solo Barcode (EAN/UPC) per essere più veloci e precisi
-                    html5QrCode.start(
-                    { facingMode: "environment" }, 
-                    config, 
-                    async (text) => {
-                        if (isScanning) return; // Se sto già processando, ignoro
-                        isScanning = true;
-                        
-                        // Feedback tattile (se supportato)
-                        if(navigator.vibrate) navigator.vibrate(100);
-                        
-                        await html5QrCode.stop();
-                        container.classList.add('hidden');
-                        
-                        // Avviamo l'aggiunta
-                        await window.fetchProductAPI(text);
-                        isScanning = false; // Riapro la possibilità di scansionare
-                    }
-                    ).catch(err => alert("Errore fotocamera: " + err));
-                } else {
-                    container.classList.add('hidden');
-                    if(html5QrCode) html5QrCode.stop();
-                    isScanning = false;
-                }
-            };
-            
-            window.fetchProductAPI = async (barcode) => {
-                // Mostriamo un caricamento immediato (opzionale ma consigliato)
-                const list = document.getElementById('dispensa-list');
-                const loadingId = "temp-load";
-                list.insertAdjacentHTML('afterbegin', `<div id="${loadingId}" class="p-4 text-center text-indigo-500 font-bold animate-pulse">Verifica prodotto in corso...</div>`);
-                
-                try {
-                    // 1. Controllo immediato nel database locale per evitare duplicati
-                    const esistente = prodData.find(p => p.barcode === barcode);
+            try {
+                if (!id) {
+                    const esistente = prodData.find(p => p.nome.toLowerCase() === nome.toLowerCase());
                     if (esistente) {
-                        document.getElementById(loadingId)?.remove();
-                        await window.changeQty(esistente.id, 1);
-                        return;
+                        if (confirm(`"${nome}" esiste già. Aggiungo +1?`)) await changeQty(esistente.id, 1);
+                        closeManualModal(); return;
                     }
-                    
-                    // 2. Chiamata API esterna
-                    const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
-                    const data = await res.json();
-                    
-                    if (data.status === 1) {
-                        const p = data.product;
-                        const nuovoProdotto = {
-                            userId: currentUser.uid,
-                            barcode: barcode,
-                            nome: p.product_name || p.product_name_it || 'Prodotto Ignoto',
-                            img: p.image_url || 'https://via.placeholder.com/150',
-                            categoria: 'Altro',
-                            qty: 1,
-                            updatedAt: new Date()
-                        };
-                        
-                        // 3. Salvataggio su Firestore
-                        await addDoc(collection(db, "prodotti"), nuovoProdotto);
-                    } else {
-                        alert("Prodotto non in database. Inserimento manuale.");
-                        window.openManualModal();
-                    }
-                } catch (e) {
-                    alert("Errore durante l'aggiunta: " + e.message);
-                } finally {
-                    document.getElementById(loadingId)?.remove();
-                }
-            };
-            
-            // --- UI RENDERING ---
-            window.renderDispensa = () => {
-                const list = document.getElementById('dispensa-list');
-                list.innerHTML = '';
-                let items = prodData;
-                if(currentView === 'low') items = items.filter(i => i.qty === 0);
-                if(currentFilter !== 'all') items = items.filter(i => i.categoria === currentFilter);
-                if(searchQuery !== '') items = items.filter(i => i.nome.toLowerCase().includes(searchQuery));
-                
-                if(items.length === 0) {
-                    list.innerHTML = `<div class="text-center py-20 text-slate-300"><i data-lucide="search-x" class="w-10 h-10 mx-auto mb-2 opacity-20"></i><p class="text-sm font-medium">Vuoto</p></div>`;
-                }
-                
-                items.forEach(p => {
-                    list.innerHTML += `
-                    <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4 active:scale-[0.98] transition-transform">
-                        <img src="${p.img}" class="w-16 h-16 object-cover rounded-xl bg-slate-50" onclick="openManualModal('${p.id}')">
-                        <div class="flex-1 min-w-0" onclick="openManualModal('${p.id}')">
-                            <h3 class="font-bold text-slate-800 text-sm truncate leading-tight">${p.nome}</h3>
-                            <span class="inline-block mt-1 px-2 py-0.5 bg-indigo-50 text-indigo-500 rounded text-[9px] font-black uppercase tracking-widest border border-indigo-100">${p.categoria}</span>
-                        </div>
-                        <div class="flex items-center gap-2 bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
-                            <button onclick="changeQty('${p.id}', -1)" class="w-8 h-8 bg-white rounded-xl flex items-center justify-center shadow-sm text-lg font-bold text-slate-400">-</button>
-                            <span class="font-black w-6 text-center text-sm ${p.qty === 0 ? 'text-red-500' : 'text-indigo-600'}">${p.qty}</span>
-                            <button onclick="changeQty('${p.id}', 1)" class="w-8 h-8 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-lg text-lg font-bold">+</button>
-                        </div>
-                    </div>`;
-                });
-                lucide.createIcons();
-            };
-            
-            // --- ALTRE FUNZIONI (Scanner, Search, Filtri) ---
-            let html5QrCode;
-            window.toggleScanner = () => {
-                const container = document.getElementById('scanner-container');
-                if (container.classList.contains('hidden')) {
-                    container.classList.remove('hidden');
-                    html5QrCode = new Html5Qrcode("reader");
-                    html5QrCode.start({ facingMode: "environment" }, { fps: 20, qrbox: { width: 250, height: 150 } }, (text) => {
-                        html5QrCode.stop().then(() => {
-                            container.classList.add('hidden');
-                            const esistente = prodData.find(i => i.barcode === text);
-                            if(esistente) changeQty(esistente.id, 1); else fetchProductAPI(text);
-                        });
+                    await addDoc(collection(db, "prodotti"), { 
+                        nome, categoria, userId: currentUser.uid, qty: 1, 
+                        img: 'https://cdn-icons-png.flaticon.com/512/679/679821.png', 
+                        updatedAt: new Date(), barcode: null 
                     });
-                } else { container.classList.add('hidden'); if(html5QrCode) html5QrCode.stop(); }
-            };
-            
-            window.setFilter = (cat) => {
-                currentFilter = cat;
-                document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.toggle('active', btn.innerText === (cat === 'all' ? 'TUTTI' : (cat === 'Pasta & Riso' ? 'PASTA' : cat.toUpperCase()))));
-                renderDispensa();
-            };
-            
-            window.setView = (view) => {
-                currentView = view;
-                document.getElementById('nav-all').classList.toggle('active', view === 'all');
-                document.getElementById('nav-low').classList.toggle('active', view === 'low');
-                renderDispensa();
-            };
-            
-            window.handleSearch = () => {
-                searchQuery = document.getElementById('search-input').value.toLowerCase();
-                renderDispensa();
-            };
-            
-            window.openManualModal = (id = null) => {
-                const modal = document.getElementById('manual-modal');
-                if(id) {
-                    const p = prodData.find(i => i.id === id);
-                    document.getElementById('edit-id').value = p.id;
-                    document.getElementById('m-nome').value = p.nome;
-                    document.getElementById('m-cat').value = p.categoria;
                 } else {
-                    document.getElementById('edit-id').value = '';
-                    document.getElementById('m-nome').value = '';
-                    document.getElementById('m-cat').value = 'Altro';
+                    const originale = prodData.find(p => p.id === id);
+                    await updateDoc(doc(db, "prodotti", id), { 
+                        nome, categoria, img: originale.img, barcode: originale.barcode, updatedAt: new Date() 
+                    });
                 }
-                modal.classList.add('active');
-            };
+                closeManualModal();
+            } catch (e) { alert(e.message); }
+        };
+        
+        window.changeQty = async (id, delta) => {
+            const p = prodData.find(i => i.id === id);
+            const newQty = Math.max(0, p.qty + delta);
+            if (delta === -1 && p.qty === 0) {
+                if(confirm("Eliminare?")) await deleteDoc(doc(db, "prodotti", id));
+            } else {
+                await updateDoc(doc(db, "prodotti", id), { qty: newQty });
+            }
+        };
+        
+        window.toggleScanner = (continuous = false) => {
+            isInventoryMode = continuous;
+            const container = document.getElementById('scanner-container');
+            if (container.classList.contains('hidden')) {
+                container.classList.remove('hidden');
+                if(isInventoryMode) container.classList.add('border-red-500');
+                html5QrCode = new Html5Qrcode("reader");
+                const config = { fps: 20, qrbox: { width: 280, height: 160 }, aspectRatio: 1.77 };
+                
+                html5QrCode.start({ facingMode: "environment" }, config, async (text) => {
+                    if (isScanning || (isInventoryMode && text === lastScannedCode)) return;
+                    isScanning = true;
+                    lastScannedCode = text;
+                    if(navigator.vibrate) navigator.vibrate(100);
+                    
+                    if (!isInventoryMode) { await html5QrCode.stop(); container.classList.add('hidden'); }
+                    await window.fetchProductAPI(text);
+                    isScanning = false;
+                    setTimeout(() => { lastScannedCode = null; }, 3000);
+                });
+            } else { stopScanner(); }
+        };
+        
+        window.stopScanner = () => {
+            const container = document.getElementById('scanner-container');
+            container.classList.add('hidden');
+            container.classList.remove('border-red-500');
+            if(html5QrCode) html5QrCode.stop();
+            isScanning = false;
+        };
+        
+        window.fetchProductAPI = async (barcode) => {
+            const esistente = prodData.find(p => p.barcode === barcode);
+            if (esistente) { await window.changeQty(esistente.id, 1); return; }
             
-            window.closeManualModal = () => document.getElementById('manual-modal').classList.remove('active');
+            try {
+                const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
+                const data = await res.json();
+                if (data.status === 1) {
+                    const p = data.product;
+                    await addDoc(collection(db, "prodotti"), {
+                        userId: currentUser.uid, barcode,
+                        nome: p.product_name || p.product_name_it || 'Ignoto',
+                        img: p.image_url || 'https://via.placeholder.com/150',
+                        categoria: 'Altro', qty: 1, updatedAt: new Date()
+                    });
+                } else if (!isInventoryMode) {
+                    alert("Non trovato."); window.openManualModal();
+                }
+            } catch (e) { console.error(e); }
+        };
+        
+        window.renderDispensa = () => {
+            const list = document.getElementById('dispensa-list');
+            list.innerHTML = '';
+            let items = [...prodData].sort((a,b) => a.nome.localeCompare(b.nome));
+            if(currentView === 'low') items = items.filter(i => i.qty === 0);
+            if(currentFilter !== 'all') items = items.filter(i => i.categoria === currentFilter);
+            if(searchQuery) items = items.filter(i => i.nome.toLowerCase().includes(searchQuery));
             
+            if(!items.length) { list.innerHTML = `<p class="text-center py-10 text-slate-300">Nessun prodotto</p>`; return; }
+            
+            items.forEach(p => {
+                list.innerHTML += `
+                <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
+                    <img src="${p.img}" class="w-16 h-16 object-cover rounded-xl bg-slate-50" onclick="openManualModal('${p.id}')">
+                    <div class="flex-1 min-w-0" onclick="openManualModal('${p.id}')">
+                        <h3 class="font-bold text-slate-800 text-sm truncate">${p.nome}</h3>
+                        <span class="text-[9px] font-black uppercase text-indigo-500">${p.categoria}</span>
+                    </div>
+                    <div class="flex items-center gap-2 bg-slate-50 p-1 rounded-2xl">
+                        <button onclick="changeQty('${p.id}', -1)" class="w-8 h-8 bg-white rounded-xl shadow-sm text-slate-400">-</button>
+                        <span class="font-black w-6 text-center text-sm ${p.qty === 0 ? 'text-red-500' : 'text-indigo-600'}">${p.qty}</span>
+                        <button onclick="changeQty('${p.id}', 1)" class="w-8 h-8 bg-indigo-600 text-white rounded-xl shadow-lg">+</button>
+                    </div>
+                </div>`;
+            });
             lucide.createIcons();
-        </script>
-    </body>
-    </html>
+        };
+        
+        window.setFilter = (cat) => { currentFilter = cat; renderDispensa(); };
+        window.setView = (view) => { currentView = view; renderDispensa(); };
+        window.handleSearch = () => { searchQuery = document.getElementById('search-input').value.toLowerCase(); renderDispensa(); };
+        window.openManualModal = (id = null) => {
+            const modal = document.getElementById('manual-modal');
+            if(id) {
+                const p = prodData.find(i => i.id === id);
+                document.getElementById('edit-id').value = p.id;
+                document.getElementById('m-nome').value = p.nome;
+                document.getElementById('m-cat').value = p.categoria;
+            } else {
+                document.getElementById('edit-id').value = '';
+                document.getElementById('m-nome').value = '';
+                document.getElementById('m-cat').value = 'Altro';
+            }
+            modal.classList.add('active');
+        };
+        window.closeManualModal = () => document.getElementById('manual-modal').classList.remove('active');
+        
+        document.getElementById('loginBtn').onclick = () => signInWithPopup(auth, provider);
+        document.getElementById('logoutBtn').onclick = () => { if(confirm("Uscire?")) signOut(auth); };
+        lucide.createIcons();
+    </script>
+</body>
+</html>
