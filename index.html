@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>La mia dispensa</title>
+    <title>La Mia Dispensa Smart</title>
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
@@ -69,7 +69,7 @@
                 <div class="flex justify-between items-center">
                     <div class="flex items-center gap-3">
                         <img id="user-photo" src="" class="w-9 h-9 rounded-full border-2 border-white/20">
-                        <span class="font-black tracking-tight text-lg">La mia dispensa</span>
+                        <span class="font-black tracking-tight text-lg">Dispensa</span>
                     </div>
                     <div class="flex gap-2">
                         <button onclick="generateShoppingList()" class="bg-white/10 p-2 rounded-xl"><i data-lucide="shopping-cart" class="w-5 h-5"></i></button>
@@ -124,7 +124,7 @@
             </button>
             <button onclick="setView('low')" id="nav-low" class="nav-btn flex flex-col items-center gap-1">
                 <i data-lucide="shopping-basket" class="w-5 h-5"></i>
-                <span class="text-[10px] font-black uppercase">Esauriti</span>
+                <span class="text-[10px] font-black uppercase">Da comprare</span>
             </button>
         </nav>
     </div>
@@ -330,4 +330,35 @@
         
         window.setFilter = (cat) => { 
             currentFilter = cat; 
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('activ
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            renderDispensa(); 
+        };
+        window.setView = (view) => { 
+            currentView = view; 
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`nav-${view}`).classList.add('active');
+            renderDispensa(); 
+        };
+        window.handleSearch = () => { searchQuery = document.getElementById('search-input').value.toLowerCase(); renderDispensa(); };
+        window.openManualModal = (id = null) => {
+            const modal = document.getElementById('manual-modal');
+            if(id) {
+                const p = prodData.find(i => i.id === id);
+                document.getElementById('edit-id').value = p.id;
+                document.getElementById('m-nome').value = p.nome;
+                document.getElementById('m-cat').value = p.categoria;
+            } else {
+                document.getElementById('edit-id').value = '';
+                document.getElementById('m-nome').value = '';
+                document.getElementById('m-cat').value = 'Altro';
+            }
+            modal.classList.add('active');
+        };
+        window.closeManualModal = () => document.getElementById('manual-modal').classList.remove('active');
+        
+        document.getElementById('loginBtn').onclick = () => signInWithPopup(auth, provider);
+        lucide.createIcons();
+    </script>
+</body>
+</html>
