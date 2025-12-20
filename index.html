@@ -13,8 +13,7 @@
         body { font-family: 'Inter', sans-serif; background-color: #f8fafc; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         
         #loadingScreen { position: fixed; inset: 0; z-index: 9999; background-color: #f8fafc; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.3s ease; }
-        #authOverlay { display: none; }
-        #appContent { display: none; }
+        #authOverlay, #appContent { display: none; }
         .flex-active { display: flex !important; }
         .block-active { display: block !important; }
         
@@ -29,80 +28,37 @@
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
         .modal.active { display: flex; }
 
-        /* FIX ORIENTAMENTO: Messaggio se ruotato */
-        #portrait-lock {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: #4f46e5;
-            color: white;
-            z-index: 10000;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-        }
-        @media (orientation: landscape) {
-            #portrait-lock { display: flex; }
-        }
+        /* Scanner Overlay */
+        #scanner-overlay { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); z-index: 100; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(10px); }
+        #scanner-overlay.active { display: flex; }
+        #reader-wrapper { width: 85%; max-width: 350px; background: white; border-radius: 2.5rem; overflow: hidden; position: relative; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+        #reader { width: 100% !important; border: none !important; }
+        #reader video { object-fit: cover !important; height: 280px !important; }
+        .scanner-target { position: absolute; inset: 0; pointer-events: none; display: flex; align-items: center; justify-content: center; }
+        .target-box { width: 200px; height: 120px; border: 2px solid rgba(255,255,255,0.5); border-radius: 1rem; box-shadow: 0 0 0 9999px rgba(0,0,0,0.4); transition: border-color 0.2s; }
 
-        /* SCANNER RIDOTTO */
-        #scanner-container {
-            max-width: 340px;
-            margin: 0 auto;
-            position: relative;
-        }
-        #reader { 
-            width: 100% !important; 
-            border: none !important;
-            overflow: hidden;
-            border-radius: 2rem;
-        }
-        #reader video { 
-            object-fit: cover !important; 
-            height: 250px !important; 
-        }
+        .fab-scan { position: fixed; bottom: 6rem; right: 1.5rem; width: 64px; height: 64px; background: #4f46e5; color: white; border-radius: 22px; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.5); z-index: 45; }
 
-        .fab-scan {
-            position: fixed;
-            bottom: 6rem;
-            right: 1.5rem;
-            width: 64px;
-            height: 64px;
-            background: #4f46e5;
-            color: white;
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.5);
-            z-index: 45;
-            transition: all 0.2s;
+        @media print {
+            body * { visibility: hidden; }
+            #print-section, #print-section * { visibility: visible; }
+            #print-section { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
+            .no-print { display: none; }
         }
-        .fab-scan:active { transform: scale(0.9); }
     </style>
 </head>
 <body class="pb-32">
 
-    <div id="portrait-lock">
-        <i data-lucide="rotate-cw" class="w-12 h-12 mb-4 animate-spin"></i>
-        <h1 class="text-xl font-bold">Ruota il telefono</h1>
-        <p class="opacity-80">L'app funziona solo in verticale</p>
-    </div>
+    <div id="loadingScreen"><div class="spinner"></div></div>
     
-    <div id="loadingScreen">
-        <div class="spinner"></div>
-        <p class="mt-4 text-slate-400 font-medium animate-pulse">La mia dispensa...</p>
-    </div>
-    
-    <div id="authOverlay" class="fixed inset-0 z-[100] bg-slate-900 flex-col items-center justify-center p-6 text-center">
-        <div class="bg-white p-8 rounded-[2.5rem] shadow-2xl max-w-sm w-full">
-            <div class="w-20 h-20 bg-gradient-to-tr from-indigo-600 to-purple-600 rounded-3xl mx-auto mb-6 flex items-center justify-center text-white shadow-xl">
+    <div id="authOverlay" class="fixed inset-0 z-[100] bg-slate-900 flex-col items-center justify-center p-6">
+        <div class="bg-white p-8 rounded-[2.5rem] shadow-2xl max-w-sm w-full text-center">
+            <div class="w-16 h-16 bg-indigo-600 rounded-2xl mx-auto mb-6 flex items-center justify-center text-white">
                 <i data-lucide="refrigerator" class="w-10 h-10"></i>
             </div>
-            <h2 class="text-3xl font-black mb-3 text-slate-800">La mia dispensa</h2>
-            <button id="loginBtn" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-3 active:scale-95 transition-all">
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5"> Accedi con Google
+            <h2 class="text-2xl font-black mb-6 text-slate-800">La mia dispensa</h2>
+            <button id="loginBtn" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-3">
+                Accedi con Google
             </button>
         </div>
     </div>
@@ -112,84 +68,84 @@
             <div class="max-w-md mx-auto p-4 space-y-4">
                 <div class="flex justify-between items-center">
                     <div class="flex items-center gap-3">
-                        <img id="user-photo" src="" class="w-9 h-9 rounded-full border-2 border-white/20 shadow-sm">
-                        <h1 class="text-lg font-bold tracking-tight">La mia dispensa</h1>
+                        <img id="user-photo" src="" class="w-9 h-9 rounded-full border-2 border-white/20">
+                        <span class="font-black tracking-tight text-lg">La mia dispensa</span>
                     </div>
                     <div class="flex gap-2">
-                        <button id="logoutBtn" class="p-2 opacity-60"><i data-lucide="log-out" class="w-5 h-5"></i></button>
-                        <button onclick="openManualModal()" class="bg-indigo-500 p-2 rounded-xl active:scale-95"><i data-lucide="plus"></i></button>
-                        <button onclick="toggleScanner(true)" class="bg-indigo-800 p-2 rounded-xl active:scale-95" title="Inventario Rapido">
-                            <i data-lucide="layers"></i>
-                        </button>
+                        <button onclick="generateShoppingList()" class="bg-white/10 p-2 rounded-xl"><i data-lucide="shopping-cart" class="w-5 h-5"></i></button>
+                        <button onclick="openManualModal()" class="bg-indigo-500 p-2 rounded-xl"><i data-lucide="plus" class="w-5 h-5"></i></button>
+                        <button onclick="toggleScanner(true)" class="bg-indigo-800 p-2 rounded-xl" title="Inventario continuo"><i data-lucide="layers" class="w-5 h-5"></i></button>
                     </div>
                 </div>
                 
                 <div class="relative">
                     <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-300"></i>
                     <input type="text" id="search-input" oninput="handleSearch()" placeholder="Cerca prodotto..." 
-                    class="w-full bg-indigo-700/50 border-none rounded-xl py-2.5 pl-10 pr-4 text-sm placeholder:text-indigo-300 focus:ring-2 focus:ring-white outline-none">
+                    class="w-full bg-indigo-700/40 border-none rounded-xl py-2.5 pl-10 pr-4 text-sm placeholder:text-indigo-300 outline-none">
                 </div>
                 
                 <div class="overflow-x-auto no-scrollbar flex gap-2 pb-1">
-                    <button onclick="setFilter('all')" class="filter-btn active shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[11px] uppercase tracking-wider">Tutti</button>
-                    <button onclick="setFilter('Pasta & Riso')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[11px] uppercase tracking-wider">Pasta</button>
-                    <button onclick="setFilter('Freschi')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[11px] uppercase tracking-wider">Freschi</button>
-                    <button onclick="setFilter('Conserve')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[11px] uppercase tracking-wider">Conserve</button>
-                    <button onclick="setFilter('Surgelati')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[11px] uppercase tracking-wider">Surgelati</button>
+                    <button onclick="setFilter('all')" class="filter-btn active shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[10px] font-bold uppercase">Tutti</button>
+                    <button onclick="setFilter('fav')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[10px] font-bold uppercase flex items-center gap-1">
+                        <i data-lucide="star" class="w-3 h-3"></i> Preferiti
+                    </button>
+                    <button onclick="setFilter('Pasta & Riso')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[10px] font-bold uppercase">Pasta</button>
+                    <button onclick="setFilter('Freschi')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[10px] font-bold uppercase">Freschi</button>
                 </div>
             </div>
         </header>
         
         <main class="max-w-md mx-auto p-4">
-            <div id="scanner-container" class="hidden mb-6 bg-white p-2 rounded-[2.5rem] shadow-xl border-4 border-indigo-100">
-                <div id="reader"></div>
-                <div class="absolute inset-0 pointer-events-none flex items-center justify-center pb-12">
-                    <div class="w-48 h-24 border-2 border-white/50 rounded-xl shadow-[0_0_0_999px_rgba(0,0,0,0.4)]"></div>
-                </div>
-                <button onclick="stopScanner()" class="w-full mt-2 py-2 text-red-500 font-bold text-[10px] uppercase tracking-widest">Chiudi Fotocamera</button>
-            </div>
             <div id="dispensa-list" class="grid gap-3"></div>
         </main>
         
-        <button onclick="toggleScanner(false)" class="fab-scan">
-            <i data-lucide="scan-barcode" class="w-8 h-8"></i>
-        </button>
+        <div id="print-section" class="hidden"></div>
+
+        <div id="scanner-overlay">
+            <div class="text-white text-center mb-6">
+                <h3 class="text-xl font-bold" id="scan-title">Scansiona</h3>
+                <p class="text-xs opacity-60">Inquadra il codice a barre</p>
+            </div>
+            <div id="reader-wrapper">
+                <div id="reader"></div>
+                <div class="scanner-target">
+                    <div class="target-box" id="target-box"></div>
+                </div>
+            </div>
+            <button onclick="stopScanner()" class="mt-10 px-10 py-4 bg-white/10 text-white rounded-2xl font-bold backdrop-blur-md border border-white/20">CHIUDI</button>
+        </div>
+
+        <button onclick="toggleScanner(false)" class="fab-scan"><i data-lucide="scan-barcode" class="w-8 h-8"></i></button>
         
         <nav class="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t p-3 flex justify-around shadow-2xl z-40">
             <button onclick="setView('all')" id="nav-all" class="nav-btn active flex flex-col items-center gap-1">
                 <i data-lucide="layout-grid" class="w-5 h-5"></i>
-                <span class="text-[10px] font-black uppercase tracking-tighter">In dispensa</span>
+                <span class="text-[10px] font-black uppercase">Dispensa</span>
             </button>
             <button onclick="setView('low')" id="nav-low" class="nav-btn flex flex-col items-center gap-1">
                 <i data-lucide="shopping-basket" class="w-5 h-5"></i>
-                <span class="text-[10px] font-black uppercase tracking-tighter">Esauriti</span>
+                <span class="text-[10px] font-black uppercase">Esauriti</span>
             </button>
         </nav>
     </div>
     
     <div id="manual-modal" class="modal p-4">
         <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
-            <h2 id="modal-title" class="text-xl font-bold mb-5">Dettaglio Prodotto</h2>
+            <h2 class="text-xl font-bold mb-5">Dettaglio Prodotto</h2>
             <input type="hidden" id="edit-id">
             <div class="space-y-4">
-                <div>
-                    <label class="text-[10px] uppercase font-black text-slate-400 ml-1">Nome</label>
-                    <input type="text" id="m-nome" class="w-full border-2 border-slate-50 p-3 rounded-xl focus:border-indigo-500 outline-none bg-slate-50">
-                </div>
-                <div>
-                    <label class="text-[10px] uppercase font-black text-slate-400 ml-1">Categoria</label>
-                    <select id="m-cat" class="w-full border-2 border-slate-50 p-3 rounded-xl focus:border-indigo-500 outline-none bg-slate-50">
-                        <option value="Pasta & Riso">Pasta & Riso</option>
-                        <option value="Freschi">Freschi</option>
-                        <option value="Conserve">Conserve</option>
-                        <option value="Surgelati">Surgelati</option>
-                        <option value="Altro">Altro</option>
-                    </select>
-                </div>
+                <input type="text" id="m-nome" placeholder="Nome prodotto" class="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 outline-none focus:border-indigo-500">
+                <select id="m-cat" class="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 outline-none">
+                    <option value="Pasta & Riso">Pasta & Riso</option>
+                    <option value="Freschi">Freschi</option>
+                    <option value="Conserve">Conserve</option>
+                    <option value="Surgelati">Surgelati</option>
+                    <option value="Altro">Altro</option>
+                </select>
             </div>
             <div class="flex gap-3 mt-8">
-                <button onclick="closeManualModal()" class="flex-1 py-3 text-slate-400 font-bold text-sm">CHIUDI</button>
-                <button onclick="handleSave()" class="flex-1 py-3 bg-indigo-600 text-white rounded-2xl font-bold text-sm uppercase">Salva</button>
+                <button onclick="closeManualModal()" class="flex-1 py-4 text-slate-400 font-bold uppercase text-xs">Annulla</button>
+                <button onclick="handleSave()" class="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-bold uppercase text-xs">Salva</button>
             </div>
         </div>
     </div>
@@ -213,21 +169,11 @@
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
         
-        let currentUser = null;
-        let prodData = [];
-        let currentFilter = 'all';
-        let currentView = 'all';
-        let searchQuery = '';
-        let unsub = null;
-        let isScanning = false;
-        let isInventoryMode = false;
-        let lastScannedCode = null;
-        let html5QrCode;
+        let currentUser = null, prodData = [], currentFilter = 'all', currentView = 'all', searchQuery = '';
+        let unsub = null, isScanning = false, isInventoryMode = false, lastScannedCode = null, html5QrCode = null;
         
         onAuthStateChanged(auth, (user) => {
-            const authOverlay = document.getElementById('authOverlay');
-            const appContent = document.getElementById('appContent');
-            const loader = document.getElementById('loadingScreen');
+            const authOverlay = document.getElementById('authOverlay'), appContent = document.getElementById('appContent'), loader = document.getElementById('loadingScreen');
             if (user) {
                 currentUser = user;
                 document.getElementById('user-photo').src = user.photoURL;
@@ -252,99 +198,97 @@
         }
         
         window.handleSave = async () => {
-            const id = document.getElementById('edit-id').value;
-            const nome = document.getElementById('m-nome').value.trim();
-            const categoria = document.getElementById('m-cat').value;
+            const id = document.getElementById('edit-id').value, nome = document.getElementById('m-nome').value.trim(), categoria = document.getElementById('m-cat').value;
             if(!nome) return;
-            
             try {
                 if (!id) {
-                    const esistente = prodData.find(p => p.nome.toLowerCase() === nome.toLowerCase());
-                    if (esistente) {
-                        if (confirm(`"${nome}" esiste già. Aggiungo +1?`)) await changeQty(esistente.id, 1);
-                        closeManualModal(); return;
-                    }
-                    await addDoc(collection(db, "prodotti"), { 
-                        nome, categoria, userId: currentUser.uid, qty: 1, 
-                        img: 'https://cdn-icons-png.flaticon.com/512/679/679821.png', 
-                        updatedAt: new Date(), barcode: null 
-                    });
+                    await addDoc(collection(db, "prodotti"), { nome, categoria, userId: currentUser.uid, qty: 1, isFavorite: false, img: 'https://cdn-icons-png.flaticon.com/512/679/679821.png', updatedAt: new Date(), barcode: null });
                 } else {
-                    const originale = prodData.find(p => p.id === id);
-                    await updateDoc(doc(db, "prodotti", id), { 
-                        nome, categoria, updatedAt: new Date() 
-                    });
+                    await updateDoc(doc(db, "prodotti", id), { nome, categoria, updatedAt: new Date() });
                 }
                 closeManualModal();
             } catch (e) { alert(e.message); }
         };
         
+        window.toggleFav = async (id) => {
+            const p = prodData.find(i => i.id === id);
+            await updateDoc(doc(db, "prodotti", id), { isFavorite: !p.isFavorite });
+        };
+
         window.changeQty = async (id, delta) => {
             const p = prodData.find(i => i.id === id);
             const newQty = Math.max(0, p.qty + delta);
-            if (delta === -1 && p.qty === 0) {
-                if(confirm("Eliminare?")) await deleteDoc(doc(db, "prodotti", id));
-            } else {
-                await updateDoc(doc(db, "prodotti", id), { qty: newQty });
-            }
+            if (delta === -1 && p.qty === 0) { if(confirm("Eliminare definitivamente?")) await deleteDoc(doc(db, "prodotti", id)); }
+            else { await updateDoc(doc(db, "prodotti", id), { qty: newQty }); }
         };
         
         window.toggleScanner = (continuous = false) => {
             isInventoryMode = continuous;
-            const container = document.getElementById('scanner-container');
-            if (container.classList.contains('hidden')) {
-                container.classList.remove('hidden');
-                
-                html5QrCode = new Html5Qrcode("reader");
-                // CONFIGURAZIONE FINESTRA PICCOLA
-                const config = { 
-                    fps: 25, 
-                    qrbox: { width: 220, height: 120 }, // Mirino rimpicciolito
-                    aspectRatio: 1.0 
-                };
-                
-                html5QrCode.start({ facingMode: "environment" }, config, async (text) => {
+            document.getElementById('scan-title').innerText = continuous ? "Inventario" : "Scansiona";
+            document.getElementById('scanner-overlay').classList.add('active');
+            
+            html5QrCode = new Html5Qrcode("reader");
+            html5QrCode.start(
+                { facingMode: "environment" }, 
+                { fps: 20, qrbox: { width: 200, height: 120 } },
+                async (text) => {
                     if (isScanning || (isInventoryMode && text === lastScannedCode)) return;
-                    isScanning = true;
-                    lastScannedCode = text;
-                    if(navigator.vibrate) navigator.vibrate(80);
+                    isScanning = true; lastScannedCode = text;
+                    if(navigator.vibrate) navigator.vibrate(70);
+                    document.getElementById('target-box').style.borderColor = "#4ade80";
+                    
+                    await window.fetchProductAPI(text);
+                    
+                    setTimeout(() => { 
+                        document.getElementById('target-box').style.borderColor = "rgba(255,255,255,0.5)";
+                        isScanning = false; 
+                    }, 1000);
                     
                     if (!isInventoryMode) { stopScanner(); }
-                    await window.fetchProductAPI(text);
-                    isScanning = false;
                     setTimeout(() => { lastScannedCode = null; }, 2500);
-                });
-            } else { stopScanner(); }
+                }
+            ).catch(() => { alert("Errore fotocamera"); stopScanner(); });
         };
         
         window.stopScanner = () => {
-            const container = document.getElementById('scanner-container');
-            container.classList.add('hidden');
+            document.getElementById('scanner-overlay').classList.remove('active');
             if(html5QrCode) {
-                html5QrCode.stop().then(() => html5QrCode.clear()).catch(e => console.log(e));
+                html5QrCode.stop().then(() => html5QrCode.clear());
             }
-            isScanning = false;
+        };
+
+        window.generateShoppingList = () => {
+            const toBuy = prodData.filter(p => p.qty <= 1).sort((a,b) => a.categoria.localeCompare(b.categoria));
+            if(!toBuy.length) return alert("Nulla da comprare!");
+            const ps = document.getElementById('print-section');
+            let html = `<h1 style="font-size:24px; font-weight:900; margin-bottom:20px;">Lista Spesa</h1>`;
+            let lastCat = "";
+            toBuy.forEach(p => {
+                if(p.categoria !== lastCat) {
+                    lastCat = p.categoria;
+                    html += `<h3 style="margin-top:15px; border-bottom:1px solid #000; font-size:12px; text-transform:uppercase;">${lastCat}</h3>`;
+                }
+                html += `<div style="padding:8px 0; border-bottom:1px solid #eee;">[ ] ${p.nome} (Disp: ${p.qty})</div>`;
+            });
+            ps.innerHTML = html;
+            window.print();
         };
         
         window.fetchProductAPI = async (barcode) => {
             const esistente = prodData.find(p => p.barcode === barcode);
             if (esistente) { await window.changeQty(esistente.id, 1); return; }
-            
             try {
                 const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
                 const data = await res.json();
                 if (data.status === 1) {
                     const p = data.product;
                     await addDoc(collection(db, "prodotti"), {
-                        userId: currentUser.uid, barcode,
-                        nome: p.product_name || p.product_name_it || 'Ignoto',
-                        img: p.image_url || 'https://via.placeholder.com/150',
+                        userId: currentUser.uid, barcode, isFavorite: false,
+                        nome: p.product_name || p.product_name_it || 'Prodotto Ignoto',
+                        img: p.image_url || 'https://cdn-icons-png.flaticon.com/512/679/679821.png',
                         categoria: 'Altro', qty: 1, updatedAt: new Date()
                     });
-                } else if (!isInventoryMode) {
-                    alert("Prodotto non trovato nel database."); 
-                    window.openManualModal();
-                }
+                } else if (!isInventoryMode) { window.openManualModal(); }
             } catch (e) { console.error(e); }
         };
         
@@ -353,23 +297,31 @@
             list.innerHTML = '';
             let items = [...prodData].sort((a,b) => a.nome.localeCompare(b.nome));
             if(currentView === 'low') items = items.filter(i => i.qty === 0);
-            if(currentFilter !== 'all') items = items.filter(i => i.categoria === currentFilter);
+            if(currentFilter === 'fav') items = items.filter(i => i.isFavorite);
+            else if(currentFilter !== 'all') items = items.filter(i => i.categoria === currentFilter);
             if(searchQuery) items = items.filter(i => i.nome.toLowerCase().includes(searchQuery));
             
             if(!items.length) { list.innerHTML = `<p class="text-center py-10 text-slate-300">Nessun prodotto</p>`; return; }
             
             items.forEach(p => {
                 list.innerHTML += `
-                <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
-                    <img src="${p.img}" class="w-16 h-16 object-cover rounded-xl bg-slate-50" onclick="openManualModal('${p.id}')">
-                    <div class="flex-1 min-w-0" onclick="openManualModal('${p.id}')">
-                        <h3 class="font-bold text-slate-800 text-sm truncate">${p.nome}</h3>
-                        <span class="text-[9px] font-black uppercase text-indigo-500">${p.categoria}</span>
+                <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3 overflow-hidden">
+                    <div class="relative shrink-0">
+                        <img src="${p.img}" class="w-14 h-14 object-cover rounded-xl bg-slate-50" onclick="openManualModal('${p.id}')">
+                        <button onclick="toggleFav('${p.id}')" class="absolute -top-2 -left-2 w-7 h-7 bg-white rounded-full shadow-md flex items-center justify-center">
+                            <i data-lucide="star" class="w-4 h-4 ${p.isFavorite ? 'fill-yellow-400 text-yellow-400' : 'text-slate-200'}"></i>
+                        </button>
                     </div>
-                    <div class="flex items-center gap-2 bg-slate-50 p-1 rounded-2xl">
-                        <button onclick="changeQty('${p.id}', -1)" class="w-8 h-8 bg-white rounded-xl shadow-sm text-slate-400">-</button>
-                        <span class="font-black w-6 text-center text-sm ${p.qty === 0 ? 'text-red-500' : 'text-indigo-600'}">${p.qty}</span>
-                        <button onclick="changeQty('${p.id}', 1)" class="w-8 h-8 bg-indigo-600 text-white rounded-xl shadow-lg">+</button>
+                    
+                    <div class="flex-1 min-w-0" onclick="openManualModal('${p.id}')">
+                        <h3 class="font-bold text-slate-800 text-xs truncate leading-tight">${p.nome}</h3>
+                        <span class="text-[8px] font-black uppercase text-indigo-500">${p.categoria}</span>
+                    </div>
+
+                    <div class="flex items-center gap-1 bg-slate-50 p-1 rounded-xl shrink-0">
+                        <button onclick="changeQty('${p.id}', -1)" class="w-8 h-8 bg-white rounded-lg shadow-sm text-slate-400 font-bold">-</button>
+                        <span class="font-black w-6 text-center text-xs ${p.qty === 0 ? 'text-red-500' : 'text-indigo-600'}">${p.qty}</span>
+                        <button onclick="changeQty('${p.id}', 1)" class="w-8 h-8 bg-indigo-600 text-white rounded-lg shadow-lg font-bold text-lg">+</button>
                     </div>
                 </div>`;
             });
@@ -378,36 +330,4 @@
         
         window.setFilter = (cat) => { 
             currentFilter = cat; 
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-            event.target.classList.add('active');
-            renderDispensa(); 
-        };
-        window.setView = (view) => { 
-            currentView = view; 
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById(`nav-${view}`).classList.add('active');
-            renderDispensa(); 
-        };
-        window.handleSearch = () => { searchQuery = document.getElementById('search-input').value.toLowerCase(); renderDispensa(); };
-        window.openManualModal = (id = null) => {
-            const modal = document.getElementById('manual-modal');
-            if(id) {
-                const p = prodData.find(i => i.id === id);
-                document.getElementById('edit-id').value = p.id;
-                document.getElementById('m-nome').value = p.nome;
-                document.getElementById('m-cat').value = p.categoria;
-            } else {
-                document.getElementById('edit-id').value = '';
-                document.getElementById('m-nome').value = '';
-                document.getElementById('m-cat').value = 'Altro';
-            }
-            modal.classList.add('active');
-        };
-        window.closeManualModal = () => document.getElementById('manual-modal').classList.remove('active');
-        
-        document.getElementById('loginBtn').onclick = () => signInWithPopup(auth, provider);
-        document.getElementById('logoutBtn').onclick = () => { if(confirm("Uscire?")) signOut(auth); };
-        lucide.createIcons();
-    </script>
-</body>
-</html>
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('activ
