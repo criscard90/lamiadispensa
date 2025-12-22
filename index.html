@@ -27,7 +27,7 @@
         
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
         .modal.active { display: flex; }
-
+        
         /* Scanner Overlay */
         #scanner-overlay { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); z-index: 100; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(10px); }
         #scanner-overlay.active { display: flex; }
@@ -36,333 +36,314 @@
         #reader video { object-fit: cover !important; height: 280px !important; }
         .scanner-target { position: absolute; inset: 0; pointer-events: none; display: flex; align-items: center; justify-content: center; }
         .target-box { width: 200px; height: 120px; border: 2px solid rgba(255,255,255,0.5); border-radius: 1rem; box-shadow: 0 0 0 9999px rgba(0,0,0,0.4); transition: border-color 0.2s; }
-
+        
         .fab-scan { position: fixed; bottom: 6rem; right: 1.5rem; width: 64px; height: 64px; background: #4f46e5; color: white; border-radius: 22px; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.5); z-index: 45; }
-
+        
+        /* Stile per la modalità stampa su schermo */
+        .print-only { display: none; }
+        
         @media print {
-    /* Nasconde tutto il resto */
-    body > *:not(#print-section) { display: none !important; }
-    
-    /* Forza la visibilità del contenitore di stampa */
-    #print-section { 
-        display: block !important; 
-        visibility: visible !important; 
-        position: static !important;
-        width: 100% !important;
-        height: auto !important;
-        overflow: visible !important;
-    }
+            body.printing-mode #appContent, 
+            body.printing-mode .fab-scan { display: none !important; }
+            
+            body.printing-mode .print-only { 
+                display: block !important; 
+                position: absolute; 
+                left: 0; 
+                top: 0; 
+                width: 100%;
+            }
         }
     </style>
 </head>
 <body class="pb-32">
-
+    
     <div id="loadingScreen"><div class="spinner"></div>
     <p class="mt-4 text-slate-400 font-medium animate-pulse">La mia dispensa...</p>
-    </div>
-    
-    <div id="authOverlay" class="fixed inset-0 z-[100] bg-slate-900 flex-col items-center justify-center p-6">
-        <div class="bg-white p-8 rounded-[2.5rem] shadow-2xl max-w-sm w-full text-center">
-            <div class="w-16 h-16 bg-indigo-600 rounded-2xl mx-auto mb-6 flex items-center justify-center text-white">
-                <i data-lucide="refrigerator" class="w-10 h-10"></i>
-            </div>
-            <h2 class="text-2xl font-black mb-6 text-slate-800">La mia dispensa</h2>
-            <button id="loginBtn" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-3">
-                Accedi con Google
-            </button>
-        </div>
-    </div>
-    
-    <div id="appContent">
-        <header class="bg-indigo-600 text-white shadow-lg sticky top-0 z-40">
-            <div class="max-w-md mx-auto p-4 space-y-4">
-                <div class="flex justify-between items-center">
-                    <div class="flex items-center gap-3">
-                        <img id="user-photo" src="" class="w-9 h-9 rounded-full border-2 border-white/20">
-                        <span class="font-black tracking-tight text-lg">La mia dispensa</span>
-                    </div>
-                    <div class="flex gap-2">
-                        <button onclick="generateShoppingList()" class="bg-white/10 p-2 rounded-xl"><i data-lucide="shopping-cart" class="w-5 h-5"></i></button>
-                        <button onclick="openManualModal()" class="bg-indigo-500 p-2 rounded-xl"><i data-lucide="plus" class="w-5 h-5"></i></button>
-                        <button onclick="toggleScanner(true)" class="bg-indigo-800 p-2 rounded-xl" title="Inventario continuo"><i data-lucide="layers" class="w-5 h-5"></i></button>
-                    </div>
-                </div>
-                
-                <div class="relative">
-                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-300"></i>
-                    <input type="text" id="search-input" oninput="handleSearch()" placeholder="Cerca prodotto..." 
-                    class="w-full bg-indigo-700/40 border-none rounded-xl py-2.5 pl-10 pr-4 text-sm placeholder:text-indigo-300 outline-none">
-                </div>
-                
-                <div class="overflow-x-auto no-scrollbar flex gap-2 pb-1">
-                    <button onclick="setFilter('all')" class="filter-btn active shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[10px] font-bold uppercase">Tutti</button>
-                    <button onclick="setFilter('fav')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[10px] font-bold uppercase flex items-center gap-1">
-                        <i data-lucide="star" class="w-3 h-3"></i> Preferiti
-                    </button>
-                    <button onclick="setFilter('Pasta & Riso')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[10px] font-bold uppercase">Pasta & Riso</button>
-                    <button onclick="setFilter('Freschi')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[10px] font-bold uppercase">Freschi</button>
-                    <button onclick="setFilter('Conserve')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[10px] font-bold uppercase">Conserve</button>
-                    <button onclick="setFilter('Surgelati')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[10px] font-bold uppercase">Surgelati</button>
-                    <button onclick="setFilter('Altro')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[10px] font-bold uppercase">Altro</button>
-                </div>
-            </div>
-        </header>
-        
-        <main class="max-w-md mx-auto p-4">
-            <div id="dispensa-list" class="grid gap-3"></div>
-        </main>
-        
-        <div id="print-section" class="hidden"></div>
+</div>
 
-        <div id="scanner-overlay">
-            <div class="text-white text-center mb-6">
-                <h3 class="text-xl font-bold" id="scan-title">Scansiona</h3>
-                <p class="text-xs opacity-60">Inquadra il codice a barre</p>
-            </div>
-            <div id="reader-wrapper">
-                <div id="reader"></div>
-                <div class="scanner-target">
-                    <div class="target-box" id="target-box"></div>
+<div id="authOverlay" class="fixed inset-0 z-[100] bg-slate-900 flex-col items-center justify-center p-6">
+    <div class="bg-white p-8 rounded-[2.5rem] shadow-2xl max-w-sm w-full text-center">
+        <div class="w-16 h-16 bg-indigo-600 rounded-2xl mx-auto mb-6 flex items-center justify-center text-white">
+            <i data-lucide="refrigerator" class="w-10 h-10"></i>
+        </div>
+        <h2 class="text-2xl font-black mb-6 text-slate-800">La mia dispensa</h2>
+        <button id="loginBtn" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-3">
+            Accedi con Google
+        </button>
+    </div>
+</div>
+
+<div id="appContent">
+    <header class="bg-indigo-600 text-white shadow-lg sticky top-0 z-40">
+        <div class="max-w-md mx-auto p-4 space-y-4">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <img id="user-photo" src="" class="w-9 h-9 rounded-full border-2 border-white/20">
+                    <span class="font-black tracking-tight text-lg">La mia dispensa</span>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="generateShoppingList()" class="bg-white/10 p-2 rounded-xl"><i data-lucide="shopping-cart" class="w-5 h-5"></i></button>
+                    <button onclick="openManualModal()" class="bg-indigo-500 p-2 rounded-xl"><i data-lucide="plus" class="w-5 h-5"></i></button>
+                    <button onclick="toggleScanner(true)" class="bg-indigo-800 p-2 rounded-xl" title="Inventario continuo"><i data-lucide="layers" class="w-5 h-5"></i></button>
                 </div>
             </div>
-            <button onclick="stopScanner()" class="mt-10 px-10 py-4 bg-white/10 text-white rounded-2xl font-bold backdrop-blur-md border border-white/20">CHIUDI</button>
-        </div>
-
-        <button onclick="toggleScanner(false)" class="fab-scan"><i data-lucide="scan-barcode" class="w-8 h-8"></i></button>
-        
-        <nav class="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t p-3 flex justify-around shadow-2xl z-40">
-            <button onclick="setView('all')" id="nav-all" class="nav-btn active flex flex-col items-center gap-1">
-                <i data-lucide="layout-grid" class="w-5 h-5"></i>
-                <span class="text-[10px] font-black uppercase">Dispensa</span>
-            </button>
-            <button onclick="setView('low')" id="nav-low" class="nav-btn flex flex-col items-center gap-1">
-                <i data-lucide="shopping-basket" class="w-5 h-5"></i>
-                <span class="text-[10px] font-black uppercase">Da comprare</span>
-            </button>
-        </nav>
-    </div>
-    
-    <div id="manual-modal" class="modal p-4">
-        <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
-            <h2 class="text-xl font-bold mb-5">Dettaglio Prodotto</h2>
-            <input type="hidden" id="edit-id">
-            <div class="space-y-4">
-                <input type="text" id="m-nome" placeholder="Nome prodotto" class="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 outline-none focus:border-indigo-500">
-                <select id="m-cat" class="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 outline-none">
-                    <option value="Pasta & Riso">Pasta & Riso</option>
-                    <option value="Freschi">Freschi</option>
-                    <option value="Conserve">Conserve</option>
-                    <option value="Surgelati">Surgelati</option>
-                    <option value="Altro">Altro</option>
-                </select>
-            </div>
-            <div class="flex gap-3 mt-8">
-                <button onclick="closeManualModal()" class="flex-1 py-4 text-slate-400 font-bold uppercase text-xs">Annulla</button>
-                <button onclick="handleSave()" class="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-bold uppercase text-xs">Salva</button>
-            </div>
-        </div>
-    </div>
-    
-    <script type="module">  
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-        
-        const firebaseConfig = {
-            apiKey: "AIzaSyCIj-dDTISbk2hSBOxiCQvYXHV4v27qTqs",
-            authDomain: "lamiadispensa-6f40f.firebaseapp.com",
-            projectId: "lamiadispensa-6f40f",
-            storageBucket: "lamiadispensa-6f40f.firebasestorage.app",
-            messagingSenderId: "737295896450",
-            appId: "1:737295896450:web:98a6166f0e5c5d6ffe499b"
-        };
-        
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const provider = new GoogleAuthProvider();
-        
-        let currentUser = null, prodData = [], currentFilter = 'all', currentView = 'all', searchQuery = '';
-        let unsub = null, isScanning = false, isInventoryMode = false, lastScannedCode = null, html5QrCode = null;
-        
-        onAuthStateChanged(auth, (user) => {
-            const authOverlay = document.getElementById('authOverlay'), appContent = document.getElementById('appContent'), loader = document.getElementById('loadingScreen');
-            if (user) {
-                currentUser = user;
-                document.getElementById('user-photo').src = user.photoURL;
-                authOverlay.classList.remove('flex-active');
-                appContent.classList.add('block-active');
-                startSync();
-            } else {
-                currentUser = null;
-                appContent.classList.remove('block-active');
-                authOverlay.classList.add('flex-active');
-                if(unsub) unsub();
-            }
-            setTimeout(() => { loader.style.opacity = '0'; setTimeout(() => loader.style.display = 'none', 300); }, 500);
-        });
-        
-        function startSync() {
-            const q = query(collection(db, "prodotti"), where("userId", "==", currentUser.uid));
-            unsub = onSnapshot(q, (snapshot) => {
-                prodData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderDispensa();
-            });
-        }
-        
-        window.handleSave = async () => {
-            const id = document.getElementById('edit-id').value, nome = document.getElementById('m-nome').value.trim(), categoria = document.getElementById('m-cat').value;
-            if(!nome) return;
-            try {
-                if (!id) {
-                    await addDoc(collection(db, "prodotti"), { nome, categoria, userId: currentUser.uid, qty: 1, isFavorite: false, img: 'https://cdn-icons-png.flaticon.com/512/679/679821.png', updatedAt: new Date(), barcode: null });
-                } else {
-                    await updateDoc(doc(db, "prodotti", id), { nome, categoria, updatedAt: new Date() });
-                }
-                closeManualModal();
-            } catch (e) { alert(e.message); }
-        };
-        
-        window.toggleFav = async (id) => {
-            const p = prodData.find(i => i.id === id);
-            await updateDoc(doc(db, "prodotti", id), { isFavorite: !p.isFavorite });
-        };
-
-        window.changeQty = async (id, delta) => {
-            const p = prodData.find(i => i.id === id);
-            const newQty = Math.max(0, p.qty + delta);
-            if (delta === -1 && p.qty === 0) { if(confirm("Eliminare definitivamente?")) await deleteDoc(doc(db, "prodotti", id)); }
-            else { await updateDoc(doc(db, "prodotti", id), { qty: newQty }); }
-        };
-        
-        window.toggleScanner = (continuous = false) => {
-            isInventoryMode = continuous;
-            document.getElementById('scan-title').innerText = continuous ? "Inventario" : "Scansiona";
-            document.getElementById('scanner-overlay').classList.add('active');
             
-            html5QrCode = new Html5Qrcode("reader");
-            html5QrCode.start(
-                { facingMode: "environment" }, 
-                { fps: 20, qrbox: { width: 200, height: 120 } },
-                async (text) => {
-                    if (isScanning || (isInventoryMode && text === lastScannedCode)) return;
-                    isScanning = true; lastScannedCode = text;
-                    if(navigator.vibrate) navigator.vibrate(70);
-                    document.getElementById('target-box').style.borderColor = "#4ade80";
-                    
-                    await window.fetchProductAPI(text);
-                    
-                    setTimeout(() => { 
-                        document.getElementById('target-box').style.borderColor = "rgba(255,255,255,0.5)";
-                        isScanning = false; 
-                    }, 1000);
-                    
-                    if (!isInventoryMode) { stopScanner(); }
-                    setTimeout(() => { lastScannedCode = null; }, 2500);
-                }
-            ).catch(() => { alert("Errore fotocamera"); stopScanner(); });
-        };
-        
-        window.stopScanner = () => {
-            document.getElementById('scanner-overlay').classList.remove('active');
-            if(html5QrCode) {
-                html5QrCode.stop().then(() => html5QrCode.clear());
-            }
-        };
+            <div class="relative">
+                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-300"></i>
+                <input type="text" id="search-input" oninput="handleSearch()" placeholder="Cerca prodotto..." 
+                class="w-full bg-indigo-700/40 border-none rounded-xl py-2.5 pl-10 pr-4 text-sm placeholder:text-indigo-300 outline-none">
+            </div>
+            
+            <div class="overflow-x-auto no-scrollbar flex gap-2 pb-1">
+                <button onclick="setFilter('all')" class="filter-btn active shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[10px] font-bold uppercase">Tutti</button>
+                <button onclick="setFilter('fav')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[10px] font-bold uppercase flex items-center gap-1">
+                    <i data-lucide="star" class="w-3 h-3"></i> Preferiti
+                </button>
+                <button onclick="setFilter('Pasta & Riso')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[10px] font-bold uppercase">Pasta & Riso</button>
+                <button onclick="setFilter('Freschi')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[10px] font-bold uppercase">Freschi</button>
+                <button onclick="setFilter('Conserve')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[10px] font-bold uppercase">Conserve</button>
+                <button onclick="setFilter('Surgelati')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[10px] font-bold uppercase">Surgelati</button>
+                <button onclick="setFilter('Altro')" class="filter-btn shrink-0 px-4 py-1.5 rounded-full border border-indigo-400 text-[10px] font-bold uppercase">Altro</button>
+            </div>
+        </div>
+    </header>
+    
+    <main class="max-w-md mx-auto p-4">
+        <div id="dispensa-list" class="grid gap-3"></div>
+    </main>
+    
+    <div id="print-section" class="hidden"></div>
+    
+    <div id="scanner-overlay">
+        <div class="text-white text-center mb-6">
+            <h3 class="text-xl font-bold" id="scan-title">Scansiona</h3>
+            <p class="text-xs opacity-60">Inquadra il codice a barre</p>
+        </div>
+        <div id="reader-wrapper">
+            <div id="reader"></div>
+            <div class="scanner-target">
+                <div class="target-box" id="target-box"></div>
+            </div>
+        </div>
+        <button onclick="stopScanner()" class="mt-10 px-10 py-4 bg-white/10 text-white rounded-2xl font-bold backdrop-blur-md border border-white/20">CHIUDI</button>
+    </div>
+    
+    <button onclick="toggleScanner(false)" class="fab-scan"><i data-lucide="scan-barcode" class="w-8 h-8"></i></button>
+    
+    <nav class="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t p-3 flex justify-around shadow-2xl z-40">
+        <button onclick="setView('all')" id="nav-all" class="nav-btn active flex flex-col items-center gap-1">
+            <i data-lucide="layout-grid" class="w-5 h-5"></i>
+            <span class="text-[10px] font-black uppercase">Dispensa</span>
+        </button>
+        <button onclick="setView('low')" id="nav-low" class="nav-btn flex flex-col items-center gap-1">
+            <i data-lucide="shopping-basket" class="w-5 h-5"></i>
+            <span class="text-[10px] font-black uppercase">Da comprare</span>
+        </button>
+    </nav>
+</div>
 
+<div id="manual-modal" class="modal p-4">
+    <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
+        <h2 class="text-xl font-bold mb-5">Dettaglio Prodotto</h2>
+        <input type="hidden" id="edit-id">
+        <div class="space-y-4">
+            <input type="text" id="m-nome" placeholder="Nome prodotto" class="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 outline-none focus:border-indigo-500">
+            <select id="m-cat" class="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 outline-none">
+                <option value="Pasta & Riso">Pasta & Riso</option>
+                <option value="Freschi">Freschi</option>
+                <option value="Conserve">Conserve</option>
+                <option value="Surgelati">Surgelati</option>
+                <option value="Altro">Altro</option>
+            </select>
+        </div>
+        <div class="flex gap-3 mt-8">
+            <button onclick="closeManualModal()" class="flex-1 py-4 text-slate-400 font-bold uppercase text-xs">Annulla</button>
+            <button onclick="handleSave()" class="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-bold uppercase text-xs">Salva</button>
+        </div>
+    </div>
+</div>
+
+<script type="module">  
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    
+    const firebaseConfig = {
+        apiKey: "AIzaSyCIj-dDTISbk2hSBOxiCQvYXHV4v27qTqs",
+        authDomain: "lamiadispensa-6f40f.firebaseapp.com",
+        projectId: "lamiadispensa-6f40f",
+        storageBucket: "lamiadispensa-6f40f.firebasestorage.app",
+        messagingSenderId: "737295896450",
+        appId: "1:737295896450:web:98a6166f0e5c5d6ffe499b"
+    };
+    
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+    
+    let currentUser = null, prodData = [], currentFilter = 'all', currentView = 'all', searchQuery = '';
+    let unsub = null, isScanning = false, isInventoryMode = false, lastScannedCode = null, html5QrCode = null;
+    
+    onAuthStateChanged(auth, (user) => {
+        const authOverlay = document.getElementById('authOverlay'), appContent = document.getElementById('appContent'), loader = document.getElementById('loadingScreen');
+        if (user) {
+            currentUser = user;
+            document.getElementById('user-photo').src = user.photoURL;
+            authOverlay.classList.remove('flex-active');
+            appContent.classList.add('block-active');
+            startSync();
+        } else {
+            currentUser = null;
+            appContent.classList.remove('block-active');
+            authOverlay.classList.add('flex-active');
+            if(unsub) unsub();
+        }
+        setTimeout(() => { loader.style.opacity = '0'; setTimeout(() => loader.style.display = 'none', 300); }, 500);
+    });
+    
+    function startSync() {
+        const q = query(collection(db, "prodotti"), where("userId", "==", currentUser.uid));
+        unsub = onSnapshot(q, (snapshot) => {
+            prodData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            renderDispensa();
+        });
+    }
+    
+    window.handleSave = async () => {
+        const id = document.getElementById('edit-id').value, nome = document.getElementById('m-nome').value.trim(), categoria = document.getElementById('m-cat').value;
+        if(!nome) return;
+        try {
+            if (!id) {
+                await addDoc(collection(db, "prodotti"), { nome, categoria, userId: currentUser.uid, qty: 1, isFavorite: false, img: 'https://cdn-icons-png.flaticon.com/512/679/679821.png', updatedAt: new Date(), barcode: null });
+            } else {
+                await updateDoc(doc(db, "prodotti", id), { nome, categoria, updatedAt: new Date() });
+            }
+            closeManualModal();
+        } catch (e) { alert(e.message); }
+    };
+    
+    window.toggleFav = async (id) => {
+        const p = prodData.find(i => i.id === id);
+        await updateDoc(doc(db, "prodotti", id), { isFavorite: !p.isFavorite });
+    };
+    
+    window.changeQty = async (id, delta) => {
+        const p = prodData.find(i => i.id === id);
+        const newQty = Math.max(0, p.qty + delta);
+        if (delta === -1 && p.qty === 0) { if(confirm("Eliminare definitivamente?")) await deleteDoc(doc(db, "prodotti", id)); }
+        else { await updateDoc(doc(db, "prodotti", id), { qty: newQty }); }
+    };
+    
+    window.toggleScanner = (continuous = false) => {
+        isInventoryMode = continuous;
+        document.getElementById('scan-title').innerText = continuous ? "Inventario" : "Scansiona";
+        document.getElementById('scanner-overlay').classList.add('active');
+        
+        html5QrCode = new Html5Qrcode("reader");
+        html5QrCode.start(
+        { facingMode: "environment" }, 
+        { fps: 20, qrbox: { width: 200, height: 120 } },
+        async (text) => {
+            if (isScanning || (isInventoryMode && text === lastScannedCode)) return;
+            isScanning = true; lastScannedCode = text;
+            if(navigator.vibrate) navigator.vibrate(70);
+            document.getElementById('target-box').style.borderColor = "#4ade80";
+            
+            await window.fetchProductAPI(text);
+            
+            setTimeout(() => { 
+                document.getElementById('target-box').style.borderColor = "rgba(255,255,255,0.5)";
+                isScanning = false; 
+            }, 1000);
+            
+            if (!isInventoryMode) { stopScanner(); }
+            setTimeout(() => { lastScannedCode = null; }, 2500);
+        }
+        ).catch(() => { alert("Errore fotocamera"); stopScanner(); });
+    };
+    
+    window.stopScanner = () => {
+        document.getElementById('scanner-overlay').classList.remove('active');
+        if(html5QrCode) {
+            html5QrCode.stop().then(() => html5QrCode.clear());
+        }
+    };
+    
 window.generateShoppingList = () => {
     const toBuy = prodData.filter(p => p.qty <= 1).sort((a,b) => a.categoria.localeCompare(b.categoria));
     if(!toBuy.length) return alert("Dispensa piena! Nulla da comprare.");
 
-    // 1. Crea un iframe temporaneo
-    let iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = 'none';
-    document.body.appendChild(iframe);
-
-    // 2. Costruisci il contenuto
-    let listHtml = `
-        <html>
-        <head>
-            <style>
-                body { font-family: sans-serif; padding: 20px; color: black; }
-                h1 { font-size: 22px; border-bottom: 2px solid black; margin-bottom: 10px; }
-                .cat { background: #eee; padding: 5px; margin-top: 15px; font-weight: bold; font-size: 13px; text-transform: uppercase; }
-                .item { padding: 10px 0; border-bottom: 1px solid #ddd; display: flex; align-items: center; font-size: 16px; }
-                .box { width: 16px; height: 16px; border: 1px solid black; margin-right: 12px; }
-                .qty { margin-left: auto; color: #666; font-size: 12px; }
-            </style>
-        </head>
-        <body>
-            <h1>Lista Spesa - ${new Date().toLocaleDateString('it-IT')}</h1>`;
+    // Recuperiamo o creiamo il contenitore per la stampa
+    let printDiv = document.getElementById('print-section');
+    printDiv.className = "print-only"; // Applichiamo la classe per nasconderlo a schermo
+    
+    let html = `
+        <div style="font-family: sans-serif; padding: 20px; color: black;">
+            <h1 style="font-size: 24px; border-bottom: 2px solid black; margin-bottom: 10px;">Lista Spesa</h1>
+            <p style="font-size: 12px; margin-bottom: 20px;">Generata il ${new Date().toLocaleDateString('it-IT')}</p>
+    `;
 
     let lastCat = "";
     toBuy.forEach(p => {
         if(p.categoria !== lastCat) {
             lastCat = p.categoria;
-            listHtml += `<div class="cat">${lastCat}</div>`;
+            html += `<h3 style="background: #eee; padding: 5px; margin-top: 20px; text-transform: uppercase; font-size: 13px;">${lastCat}</h3>`;
         }
-        listHtml += `
-            <div class="item">
-                <div class="box"></div>
-                <span>${p.nome}</span>
-                <span class="qty">Quantità: ${p.qty}</span>
+        html += `
+            <div style="padding: 10px 0; border-bottom: 1px solid #ddd; display: flex; align-items: center;">
+                <div style="width: 18px; height: 18px; border: 1px solid black; margin-right: 12px;"></div>
+                <span style="font-size: 16px;">${p.nome}</span>
+                <span style="margin-left: auto; font-size: 12px; color: #666;">Disp: ${p.qty}</span>
             </div>`;
     });
+    html += `</div>`;
 
-    listHtml += `</body></html>`;
+    printDiv.innerHTML = html;
 
-    // 3. Scrivi nel documento dell'iframe
-    const doc = iframe.contentWindow.document;
-    doc.open();
-    doc.write(listHtml);
-    doc.close();
-
-    // 4. Lancia la stampa dopo un piccolo ritardo per caricare gli stili
+    // ATTIVAZIONE STAMPA
+    document.body.classList.add('printing-mode');
+    
+    // Piccolo trucco per Android: usiamo un timeout leggermente più lungo
     setTimeout(() => {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-        
-        // Rimuovi l'iframe dopo che la finestra di stampa si è chiusa
-        setTimeout(() => { document.body.removeChild(iframe); }, 1000);
-    }, 500);
+        window.print();
+        // Una volta chiusa la finestra di stampa, puliamo la classe
+        document.body.classList.remove('printing-mode');
+    }, 300);
 };
+    
+    window.fetchProductAPI = async (barcode) => {
+        const esistente = prodData.find(p => p.barcode === barcode);
+        if (esistente) { await window.changeQty(esistente.id, 1); return; }
+        try {
+            const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
+            const data = await res.json();
+            if (data.status === 1) {
+                const p = data.product;
+                await addDoc(collection(db, "prodotti"), {
+                    userId: currentUser.uid, barcode, isFavorite: false,
+                    nome: p.product_name || p.product_name_it || 'Prodotto Ignoto',
+                    img: p.image_url || 'https://cdn-icons-png.flaticon.com/512/679/679821.png',
+                    categoria: 'Altro', qty: 1, updatedAt: new Date()
+                });
+            } else if (!isInventoryMode) { window.openManualModal(); }
+        } catch (e) { console.error(e); }
+    };
+    
+    window.renderDispensa = () => {
+        const list = document.getElementById('dispensa-list');
+        list.innerHTML = '';
+        let items = [...prodData].sort((a,b) => a.nome.localeCompare(b.nome));
+        if(currentView === 'low') items = items.filter(i => i.qty === 0);
+        if(currentFilter === 'fav') items = items.filter(i => i.isFavorite);
+        else if(currentFilter !== 'all') items = items.filter(i => i.categoria === currentFilter);
+        if(searchQuery) items = items.filter(i => i.nome.toLowerCase().includes(searchQuery));
         
-        window.fetchProductAPI = async (barcode) => {
-            const esistente = prodData.find(p => p.barcode === barcode);
-            if (esistente) { await window.changeQty(esistente.id, 1); return; }
-            try {
-                const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
-                const data = await res.json();
-                if (data.status === 1) {
-                    const p = data.product;
-                    await addDoc(collection(db, "prodotti"), {
-                        userId: currentUser.uid, barcode, isFavorite: false,
-                        nome: p.product_name || p.product_name_it || 'Prodotto Ignoto',
-                        img: p.image_url || 'https://cdn-icons-png.flaticon.com/512/679/679821.png',
-                        categoria: 'Altro', qty: 1, updatedAt: new Date()
-                    });
-                } else if (!isInventoryMode) { window.openManualModal(); }
-            } catch (e) { console.error(e); }
-        };
+        if(!items.length) { list.innerHTML = `<p class="text-center py-10 text-slate-300">Nessun prodotto</p>`; return; }
         
-        window.renderDispensa = () => {
-            const list = document.getElementById('dispensa-list');
-            list.innerHTML = '';
-            let items = [...prodData].sort((a,b) => a.nome.localeCompare(b.nome));
-            if(currentView === 'low') items = items.filter(i => i.qty === 0);
-            if(currentFilter === 'fav') items = items.filter(i => i.isFavorite);
-            else if(currentFilter !== 'all') items = items.filter(i => i.categoria === currentFilter);
-            if(searchQuery) items = items.filter(i => i.nome.toLowerCase().includes(searchQuery));
-            
-            if(!items.length) { list.innerHTML = `<p class="text-center py-10 text-slate-300">Nessun prodotto</p>`; return; }
-            
-            items.forEach(p => {
-                list.innerHTML += `
+        items.forEach(p => {
+            list.innerHTML += `
                 <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3 overflow-hidden">
                     <div class="relative shrink-0">
                         <img src="${p.img}" class="w-14 h-14 object-cover rounded-xl bg-slate-50" onclick="openManualModal('${p.id}')">
@@ -382,41 +363,41 @@ window.generateShoppingList = () => {
                         <button onclick="changeQty('${p.id}', 1)" class="w-8 h-8 bg-indigo-600 text-white rounded-lg shadow-lg font-bold text-lg">+</button>
                     </div>
                 </div>`;
-            });
-            lucide.createIcons();
-        };
-        
-        window.setFilter = (cat) => { 
-            currentFilter = cat; 
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-            event.currentTarget.classList.add('active');
-            renderDispensa(); 
-        };
-        window.setView = (view) => { 
-            currentView = view; 
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById(`nav-${view}`).classList.add('active');
-            renderDispensa(); 
-        };
-        window.handleSearch = () => { searchQuery = document.getElementById('search-input').value.toLowerCase(); renderDispensa(); };
-        window.openManualModal = (id = null) => {
-            const modal = document.getElementById('manual-modal');
-            if(id) {
-                const p = prodData.find(i => i.id === id);
-                document.getElementById('edit-id').value = p.id;
-                document.getElementById('m-nome').value = p.nome;
-                document.getElementById('m-cat').value = p.categoria;
-            } else {
-                document.getElementById('edit-id').value = '';
-                document.getElementById('m-nome').value = '';
-                document.getElementById('m-cat').value = 'Altro';
-            }
-            modal.classList.add('active');
-        };
-        window.closeManualModal = () => document.getElementById('manual-modal').classList.remove('active');
-        
-        document.getElementById('loginBtn').onclick = () => signInWithPopup(auth, provider);
+        });
         lucide.createIcons();
-    </script>
+    };
+    
+    window.setFilter = (cat) => { 
+        currentFilter = cat; 
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+        renderDispensa(); 
+    };
+    window.setView = (view) => { 
+        currentView = view; 
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(`nav-${view}`).classList.add('active');
+        renderDispensa(); 
+    };
+    window.handleSearch = () => { searchQuery = document.getElementById('search-input').value.toLowerCase(); renderDispensa(); };
+    window.openManualModal = (id = null) => {
+        const modal = document.getElementById('manual-modal');
+        if(id) {
+            const p = prodData.find(i => i.id === id);
+            document.getElementById('edit-id').value = p.id;
+            document.getElementById('m-nome').value = p.nome;
+            document.getElementById('m-cat').value = p.categoria;
+        } else {
+            document.getElementById('edit-id').value = '';
+            document.getElementById('m-nome').value = '';
+            document.getElementById('m-cat').value = 'Altro';
+        }
+        modal.classList.add('active');
+    };
+    window.closeManualModal = () => document.getElementById('manual-modal').classList.remove('active');
+    
+    document.getElementById('loginBtn').onclick = () => signInWithPopup(auth, provider);
+    lucide.createIcons();
+</script>
 </body>
 </html>
