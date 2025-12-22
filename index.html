@@ -25,8 +25,7 @@
         .nav-btn { color: #cbd5e1; transition: all 0.2s; }
         .nav-btn.active { color: #4f46e5; }
         
-        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
-        .modal.active { display: flex; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; backdrop-filter: blur(4px); }        .modal.active { display: flex; }
         
         /* Scanner Overlay */
         #scanner-overlay { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); z-index: 100; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(10px); }
@@ -54,6 +53,10 @@
                 width: 100%;
             }
         }
+        
+        #shopping-content::-webkit-scrollbar { width: 4px; }
+        #shopping-content::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        
     </style>
 </head>
 <body class="pb-32">
@@ -164,6 +167,22 @@
     </div>
 </div>
 
+<div id="shopping-modal" class="modal p-4">
+    <div class="bg-white w-full max-w-sm rounded-[2.5rem] p-6 shadow-2xl max-h-[80vh] flex flex-col">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-black text-slate-800">Lista Spesa</h2>
+            <button onclick="copyShoppingList()" class="flex items-center gap-1 text-indigo-600 font-bold text-xs bg-indigo-50 px-3 py-1.5 rounded-lg">
+                <i data-lucide="copy" class="w-3.5 h-3.5"></i> COPIA
+            </button>
+        </div>
+        <div id="shopping-content" class="overflow-y-auto flex-1 pr-2 space-y-2 text-sm text-slate-600">
+        </div>
+        <button onclick="closeShoppingList()" class="mt-6 w-full py-4 bg-slate-100 text-slate-500 rounded-2xl font-bold uppercase text-[10px] tracking-widest">
+            Chiudi
+        </button>
+    </div>
+</div>
+
 <script type="module">  
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
@@ -271,47 +290,51 @@
         }
     };
     
-window.generateShoppingList = () => {
-    const toBuy = prodData.filter(p => p.qty <= 1).sort((a,b) => a.categoria.localeCompare(b.categoria));
-    if(!toBuy.length) return alert("Dispensa piena! Nulla da comprare.");
-
-    // Recuperiamo o creiamo il contenitore per la stampa
-    let printDiv = document.getElementById('print-section');
-    printDiv.className = "print-only"; // Applichiamo la classe per nasconderlo a schermo
-    
-    let html = `
-        <div style="font-family: sans-serif; padding: 20px; color: black;">
-            <h1 style="font-size: 24px; border-bottom: 2px solid black; margin-bottom: 10px;">Lista Spesa</h1>
-            <p style="font-size: 12px; margin-bottom: 20px;">Generata il ${new Date().toLocaleDateString('it-IT')}</p>
-    `;
-
-    let lastCat = "";
-    toBuy.forEach(p => {
-        if(p.categoria !== lastCat) {
-            lastCat = p.categoria;
-            html += `<h3 style="background: #eee; padding: 5px; margin-top: 20px; text-transform: uppercase; font-size: 13px;">${lastCat}</h3>`;
-        }
-        html += `
-            <div style="padding: 10px 0; border-bottom: 1px solid #ddd; display: flex; align-items: center;">
-                <div style="width: 18px; height: 18px; border: 1px solid black; margin-right: 12px;"></div>
-                <span style="font-size: 16px;">${p.nome}</span>
-                <span style="margin-left: auto; font-size: 12px; color: #666;">Disp: ${p.qty}</span>
+    // 1. Funzione per aprire la modale con la lista
+    window.generateShoppingList = () => {
+        const toBuy = prodData.filter(p => p.qty <= 1).sort((a,b) => a.categoria.localeCompare(b.categoria));
+        const container = document.getElementById('shopping-content');
+        
+        if(!toBuy.length) return alert("Dispensa piena! Nulla da comprare.");
+        
+        let html = "";
+        let lastCat = "";
+        
+        toBuy.forEach(p => {
+            if(p.categoria !== lastCat) {
+                lastCat = p.categoria;
+                html += `<div class="font-black text-[10px] uppercase text-indigo-400 mt-4 mb-1 tracking-wider">${lastCat}</div>`;
+            }
+            html += `
+            <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <span class="font-medium text-slate-700">${p.nome}</span>
+                <span class="text-[10px] font-bold px-2 py-1 bg-white rounded-md shadow-sm ${p.qty === 0 ? 'text-red-500' : 'text-slate-400'}">
+                    Disp: ${p.qty}
+                </span>
             </div>`;
-    });
-    html += `</div>`;
-
-    printDiv.innerHTML = html;
-
-    // ATTIVAZIONE STAMPA
-    document.body.classList.add('printing-mode');
+        });
+        
+        container.innerHTML = html;
+        document.getElementById('shopping-modal').classList.add('active');
+        lucide.createIcons();
+    };
     
-    // Piccolo trucco per Android: usiamo un timeout leggermente più lungo
-    setTimeout(() => {
-        window.print();
-        // Una volta chiusa la finestra di stampa, puliamo la classe
-        document.body.classList.remove('printing-mode');
-    }, 300);
-};
+    // 2. Funzione per copiare la lista negli appunti (ottima per WhatsApp)
+    window.copyShoppingList = () => {
+        const toBuy = prodData.filter(p => p.qty <= 1).sort((a,b) => a.categoria.localeCompare(b.categoria));
+        const text = "🛒 *LISTA SPESA SMART*\n\n" + 
+        toBuy.map(p => `• ${p.nome} (Disp: ${p.qty})`).join('\n') +
+        "\n\nGenerata da La mia dispensa";
+        
+        navigator.clipboard.writeText(text).then(() => {
+            alert("Lista copiata! Ora puoi incollarla su WhatsApp o nelle Note.");
+        });
+    };
+    
+    // 3. Funzione per chiudere la modale
+    window.closeShoppingList = () => {
+        document.getElementById('shopping-modal').classList.remove('active');
+    };
     
     window.fetchProductAPI = async (barcode) => {
         const esistente = prodData.find(p => p.barcode === barcode);
