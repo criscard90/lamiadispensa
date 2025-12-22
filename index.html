@@ -195,7 +195,7 @@
         </div>
         <div id="shopping-content" class="overflow-y-auto flex-1 pr-2 space-y-2 text-sm text-slate-600">
         </div>
-
+        
         <button onclick="closeShoppingList()" class="mt-6 w-full py-4 bg-slate-100 text-slate-500 rounded-2xl font-bold uppercase text-[10px] tracking-widest">
             Chiudi
         </button>
@@ -309,93 +309,110 @@
         }
     };
     
-window.generateShoppingList = () => {
-    const toBuy = prodData.filter(p => p.qty <= 1).sort((a,b) => a.categoria.localeCompare(b.categoria));
-    const container = document.getElementById('shopping-content');
+    window.showToast = (productName) => {
+        const toast = document.getElementById('toast');
+        const msg = document.getElementById('toast-message');
+        
+        msg.innerText = productName;
+        
+        // Mostra il toast
+        toast.classList.remove('opacity-0', 'translate-y-10');
+        toast.classList.add('opacity-100', '-translate-y-2');
+        
+        // Nascondi dopo 3 secondi
+        setTimeout(() => {
+            toast.classList.add('opacity-0', 'translate-y-10');
+            toast.classList.remove('opacity-100', '-translate-y-2');
+        }, 3000);
+    };
     
-    if(!toBuy.length) return alert("Dispensa piena! Nulla da comprare.");
-
-    let html = "";
-    let lastCat = "";
-    
-    toBuy.forEach(p => {
-        if(p.categoria !== lastCat) {
-            lastCat = p.categoria;
-            html += `<div class="font-black text-[10px] uppercase text-indigo-400 mt-4 mb-1 tracking-wider">${lastCat}</div>`;
-        }
-        html += `
+    window.generateShoppingList = () => {
+        const toBuy = prodData.filter(p => p.qty <= 1).sort((a,b) => a.categoria.localeCompare(b.categoria));
+        const container = document.getElementById('shopping-content');
+        
+        if(!toBuy.length) return alert("Dispensa piena! Nulla da comprare.");
+        
+        let html = "";
+        let lastCat = "";
+        
+        toBuy.forEach(p => {
+            if(p.categoria !== lastCat) {
+                lastCat = p.categoria;
+                html += `<div class="font-black text-[10px] uppercase text-indigo-400 mt-4 mb-1 tracking-wider">${lastCat}</div>`;
+            }
+            html += `
             <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 mb-1">
                 <span class="font-medium text-slate-700">${p.nome}</span>
                 <span class="text-[10px] font-bold px-2 py-1 bg-white rounded-md shadow-sm ${p.qty === 0 ? 'text-red-500' : 'text-slate-400'}">
                     Disp: ${p.qty}
                 </span>
             </div>`;
-    });
-    
-    container.innerHTML = html;
-    document.getElementById('shopping-modal').classList.add('active');
-    lucide.createIcons();
-};
-
-// 2. SCARICA IL PDF (VERSIONE COMPATIBILE ANDROID)
-window.downloadPDF = () => {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    const toBuy = prodData.filter(p => p.qty <= 1).sort((a,b) => a.categoria.localeCompare(b.categoria));
-    
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(20);
-    doc.text("Lista della Spesa", 20, 20);
-    
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Generata il: ${new Date().toLocaleDateString('it-IT')}`, 20, 28);
-    
-    let y = 40;
-    let lastCat = "";
-
-    toBuy.forEach(p => {
-        if (y > 270) { doc.addPage(); y = 20; } // Nuova pagina se spazio esaurito
-
-        if(p.categoria !== lastCat) {
-            lastCat = p.categoria;
-            y += 5;
-            doc.setFont("helvetica", "bold");
-            doc.setFillColor(240, 240, 240);
-            doc.rect(20, y-5, 170, 7, 'F');
-            doc.text(lastCat.toUpperCase(), 22, y);
-            y += 8;
-        }
+        });
         
-        doc.setFont("helvetica", "normal");
-        doc.text(`[ ] ${p.nome}`, 25, y);
-        doc.setFontSize(8);
-        doc.text(`(Disponibili: ${p.qty})`, 160, y);
-        doc.setFontSize(10);
-        y += 7;
-    });
-
-    doc.save(`Lista_Spesa_${new Date().toISOString().slice(0,10)}.pdf`);
-};
+        container.innerHTML = html;
+        document.getElementById('shopping-modal').classList.add('active');
+        lucide.createIcons();
+    };
     
-// 3. COPIA LA LISTA CON CATEGORIE (PER WHATSAPP)
-window.copyShoppingList = () => {
-    const toBuy = prodData.filter(p => p.qty <= 1).sort((a,b) => a.categoria.localeCompare(b.categoria));
-    let text = "🛒 *LISTA SPESA SMART*\n";
-    let lastCat = "";
-
-    toBuy.forEach(p => {
-        if(p.categoria !== lastCat) {
-            lastCat = p.categoria;
-            text += `\n📂 *${lastCat.toUpperCase()}*\n`;
-        }
-        text += `• ${p.nome} (Disp: ${p.qty})\n`;
-    });
-
-    navigator.clipboard.writeText(text).then(() => {
-        alert("Lista copiata con categorie!");
-    });
-};
+    // 2. SCARICA IL PDF (VERSIONE COMPATIBILE ANDROID)
+    window.downloadPDF = () => {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const toBuy = prodData.filter(p => p.qty <= 1).sort((a,b) => a.categoria.localeCompare(b.categoria));
+        
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(20);
+        doc.text("Lista della Spesa", 20, 20);
+        
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Generata il: ${new Date().toLocaleDateString('it-IT')}`, 20, 28);
+        
+        let y = 40;
+        let lastCat = "";
+        
+        toBuy.forEach(p => {
+            if (y > 270) { doc.addPage(); y = 20; } // Nuova pagina se spazio esaurito
+            
+            if(p.categoria !== lastCat) {
+                lastCat = p.categoria;
+                y += 5;
+                doc.setFont("helvetica", "bold");
+                doc.setFillColor(240, 240, 240);
+                doc.rect(20, y-5, 170, 7, 'F');
+                doc.text(lastCat.toUpperCase(), 22, y);
+                y += 8;
+            }
+            
+            doc.setFont("helvetica", "normal");
+            doc.text(`[ ] ${p.nome}`, 25, y);
+            doc.setFontSize(8);
+            doc.text(`(Disponibili: ${p.qty})`, 160, y);
+            doc.setFontSize(10);
+            y += 7;
+        });
+        
+        doc.save(`Lista_Spesa_${new Date().toISOString().slice(0,10)}.pdf`);
+    };
+    
+    // 3. COPIA LA LISTA CON CATEGORIE (PER WHATSAPP)
+    window.copyShoppingList = () => {
+        const toBuy = prodData.filter(p => p.qty <= 1).sort((a,b) => a.categoria.localeCompare(b.categoria));
+        let text = "🛒 *LISTA SPESA SMART*\n";
+        let lastCat = "";
+        
+        toBuy.forEach(p => {
+            if(p.categoria !== lastCat) {
+                lastCat = p.categoria;
+                text += `\n📂 *${lastCat.toUpperCase()}*\n`;
+            }
+            text += `• ${p.nome} (Disp: ${p.qty})\n`;
+        });
+        
+        navigator.clipboard.writeText(text).then(() => {
+            alert("Lista copiata con categorie!");
+        });
+    };
     
     // 3. Funzione per chiudere la modale
     window.closeShoppingList = () => {
@@ -404,20 +421,40 @@ window.copyShoppingList = () => {
     
     window.fetchProductAPI = async (barcode) => {
         const esistente = prodData.find(p => p.barcode === barcode);
-        if (esistente) { await window.changeQty(esistente.id, 1); return; }
+        
+        if (esistente) { 
+            await window.changeQty(esistente.id, 1); 
+            window.showToast(esistente.nome); // Mostra toast per prodotto esistente
+            return; 
+        }
+        
         try {
             const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
             const data = await res.json();
+            
             if (data.status === 1) {
                 const p = data.product;
+                const nomeProdotto = p.product_name || p.product_name_it || 'Prodotto Ignoto';
+                
                 await addDoc(collection(db, "prodotti"), {
-                    userId: currentUser.uid, barcode, isFavorite: false,
-                    nome: p.product_name || p.product_name_it || 'Prodotto Ignoto',
+                    userId: currentUser.uid, 
+                    barcode, 
+                    isFavorite: false,
+                    nome: nomeProdotto,
                     img: p.image_url || 'https://cdn-icons-png.flaticon.com/512/679/679821.png',
-                    categoria: 'Altro', qty: 1, updatedAt: new Date()
+                    categoria: 'Altro', 
+                    qty: 1, 
+                    updatedAt: new Date()
                 });
-            } else if (!isInventoryMode) { window.openManualModal(); }
-        } catch (e) { console.error(e); }
+                
+                window.showToast(nomeProdotto); // Mostra toast per nuovo prodotto
+                
+            } else if (!isInventoryMode) { 
+                window.openManualModal(); 
+            }
+        } catch (e) { 
+            console.error(e); 
+        }
     };
     
     window.renderDispensa = () => {
@@ -488,5 +525,16 @@ window.copyShoppingList = () => {
     document.getElementById('loginBtn').onclick = () => signInWithPopup(auth, provider);
     lucide.createIcons();
 </script>
+
+<div id="toast" class="fixed bottom-24 left-1/2 -translate-x-1/2 z-[100] bg-slate-800/95 text-white px-6 py-3 rounded-2xl shadow-2xl transition-all duration-500 opacity-0 translate-y-10 pointer-events-none flex items-center gap-3 min-w-[280px] backdrop-blur-md">
+    <div class="bg-emerald-500 rounded-full p-1">
+        <i data-lucide="check" class="w-4 h-4 text-white"></i>
+    </div>
+    <div class="flex flex-col">
+        <span class="text-[10px] uppercase font-black text-slate-400 leading-none">Prodotto trovato</span>
+        <span id="toast-message" class="text-sm font-bold truncate max-w-[200px]">Nome Prodotto</span>
+    </div>
+</div>
+
 </body>
 </html>
