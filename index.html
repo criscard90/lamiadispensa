@@ -270,54 +270,65 @@
             }
         };
 
-        window.generateShoppingList = () => {
+window.generateShoppingList = () => {
     const toBuy = prodData.filter(p => p.qty <= 1).sort((a,b) => a.categoria.localeCompare(b.categoria));
     if(!toBuy.length) return alert("Dispensa piena! Nulla da comprare.");
 
-    // Creiamo il contenuto HTML della lista
+    // 1. Crea un iframe temporaneo
+    let iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    document.body.appendChild(iframe);
+
+    // 2. Costruisci il contenuto
     let listHtml = `
         <html>
         <head>
-            <title>Lista della Spesa</title>
             <style>
                 body { font-family: sans-serif; padding: 20px; color: black; }
-                h1 { border-bottom: 2px solid #000; padding-bottom: 10px; }
-                .category { background: #f0f0f0; padding: 5px; margin-top: 20px; text-transform: uppercase; font-weight: bold; font-size: 14px; }
-                .item { padding: 12px 0; border-bottom: 1px solid #eee; display: flex; align-items: center; }
-                .checkbox { width: 18px; height: 18px; border: 1px solid #000; margin-right: 15px; flex-shrink: 0; }
-                .qty { color: #666; font-size: 12px; margin-left: auto; }
+                h1 { font-size: 22px; border-bottom: 2px solid black; margin-bottom: 10px; }
+                .cat { background: #eee; padding: 5px; margin-top: 15px; font-weight: bold; font-size: 13px; text-transform: uppercase; }
+                .item { padding: 10px 0; border-bottom: 1px solid #ddd; display: flex; align-items: center; font-size: 16px; }
+                .box { width: 16px; height: 16px; border: 1px solid black; margin-right: 12px; }
+                .qty { margin-left: auto; color: #666; font-size: 12px; }
             </style>
         </head>
         <body>
-            <h1>Lista della Spesa</h1>
-            <p>${new Date().toLocaleDateString('it-IT')}</p>`;
+            <h1>Lista Spesa - ${new Date().toLocaleDateString('it-IT')}</h1>`;
 
     let lastCat = "";
     toBuy.forEach(p => {
         if(p.categoria !== lastCat) {
             lastCat = p.categoria;
-            listHtml += `<div class="category">${lastCat}</div>`;
+            listHtml += `<div class="cat">${lastCat}</div>`;
         }
         listHtml += `
             <div class="item">
-                <div class="checkbox"></div>
+                <div class="box"></div>
                 <span>${p.nome}</span>
-                <span class="qty">Disp: ${p.qty}</span>
+                <span class="qty">Quantità: ${p.qty}</span>
             </div>`;
     });
 
     listHtml += `</body></html>`;
 
-    // Apriamo una nuova finestra/tab
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(listHtml);
-    printWindow.document.close();
+    // 3. Scrivi nel documento dell'iframe
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(listHtml);
+    doc.close();
 
-    // Aspettiamo che il contenuto sia caricato e lanciamo la stampa
-    printWindow.focus();
+    // 4. Lancia la stampa dopo un piccolo ritardo per caricare gli stili
     setTimeout(() => {
-        printWindow.print();
-        printWindow.close();
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+        
+        // Rimuovi l'iframe dopo che la finestra di stampa si è chiusa
+        setTimeout(() => { document.body.removeChild(iframe); }, 1000);
     }, 500);
 };
         
